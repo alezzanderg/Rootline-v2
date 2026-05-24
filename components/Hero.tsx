@@ -1,6 +1,9 @@
+import Image from "next/image"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { marketingImages } from "@/lib/marketing-images"
 
 type Locale = "en" | "es"
 
@@ -30,7 +33,7 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center bg-secondary overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10" aria-hidden>
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <pattern id="topography" patternUnits="userSpaceOnUse" width="100" height="100">
             <path d="M0 50 Q25 30 50 50 T100 50" fill="none" stroke="#6C8C4A" strokeWidth="0.5"/>
@@ -66,10 +69,14 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
 
           <div className="relative hidden lg:block">
             <div className="relative z-0 aspect-[4/5] rounded-2xl overflow-hidden">
-              <img
-                src="/images/hero-lawn.jpg"
+              <Image
+                src={marketingImages.heroLawn}
                 alt={t.alt}
-                className="h-full w-full object-cover"
+                fill
+                className="object-cover"
+                sizes="(min-width: 1024px) 480px, 0px"
+                quality={75}
+                priority
               />
               <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-secondary/80 to-transparent" />
             </div>
@@ -82,7 +89,7 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce" aria-hidden>
         <div className="w-6 h-10 border-2 border-primary rounded-full flex justify-center">
           <div className="w-1 h-3 bg-primary rounded-full mt-2 animate-pulse" />
         </div>
@@ -90,4 +97,3 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
     </section>
   )
 }
-

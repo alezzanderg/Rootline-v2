@@ -13,7 +13,7 @@ import {
   type Locale,
 } from "@/lib/locale-path"
 
-const LOGO_SRC = "/7c976f2c-801e-4c21-9cab-4125705b2fd5.png"
+import { marketingImages } from "@/lib/marketing-images"
 
 const copy = {
   en: {
@@ -53,7 +53,7 @@ export function Navbar({ locale = "en" }: { locale?: Locale }) {
             onClick={() => setIsOpen(false)}
           >
             <Image
-              src={LOGO_SRC}
+              src={marketingImages.logoNav}
               alt="Rootline Landscaping"
               fill
               className="object-contain object-left"

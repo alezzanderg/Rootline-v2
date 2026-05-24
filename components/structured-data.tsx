@@ -1,10 +1,12 @@
 import { businessInfo } from "@/lib/services-data"
 import { absoluteUrl, getSiteUrl } from "@/lib/site-config"
 
+import { marketingImages } from "@/lib/marketing-images"
+
 const SITE_IMAGES = {
-  hero: "/images/hero-lawn.jpg",
-  logo: "/images/logo.png",
-  lawnMowing: "/images/lawn-mowing.jpg",
+  hero: marketingImages.heroLawn,
+  logo: marketingImages.logoNav,
+  lawnMowing: marketingImages.lawnMowing,
 } as const
 
 function buildLocalBusinessSchema() {

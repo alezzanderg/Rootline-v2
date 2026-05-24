@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { localizedPath, type Locale } from "@/lib/locale-path"
 
-const LOGO_FOOTER_SRC = "/logoFooter.png"
+import { marketingImages } from "@/lib/marketing-images"
 
 const copy = {
   en: {
@@ -77,7 +77,14 @@ export function Footer({ locale = "en" }: { locale?: Locale }) {
         <div className="grid md:grid-cols-4 gap-12">
           <div className="md:col-span-2">
             <div className="relative mb-6 h-12 w-[min(100%,13rem)] sm:h-14 sm:w-[min(100%,16rem)] md:w-[min(100%,18rem)]">
-              <Image src={LOGO_FOOTER_SRC} alt="Rootline Landscaping" fill className="object-contain object-left" sizes="(max-width: 768px) 208px, 288px" />
+              <Image
+                src={marketingImages.logoFooter}
+                alt="Rootline Landscaping"
+                fill
+                className="object-contain object-left"
+                sizes="(max-width: 768px) 208px, 288px"
+                loading="lazy"
+              />
             </div>
             <p className="text-[#E7E2D6]/70 leading-relaxed max-w-md mb-6">{t.brandText}</p>
             <p className="font-[family-name:var(--font-display-family)] text-lg text-[#6C8C4A]">{t.slogan}</p>

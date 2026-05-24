@@ -1,4 +1,7 @@
+import Image from "next/image"
 import { CheckCircle } from "lucide-react"
+
+import { marketingImages } from "@/lib/marketing-images"
 
 type Locale = "en" | "es"
 
@@ -32,6 +35,13 @@ const copy = {
   },
 } as const
 
+const gallery = [
+  { src: marketingImages.lawnMowing, key: "alt1" as const, tall: true },
+  { src: marketingImages.lawnTrimmed, key: "alt2" as const, tall: false },
+  { src: marketingImages.backyardLawn, key: "alt3" as const, tall: false },
+  { src: marketingImages.njHome, key: "alt4" as const, tall: true },
+] as const
+
 export function About({ locale = "en" }: { locale?: Locale }) {
   const t = copy[locale]
   const list = highlights[locale]
@@ -43,19 +53,47 @@ export function About({ locale = "en" }: { locale?: Locale }) {
           <div className="relative">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-4">
-                <div className="aspect-[4/5] rounded-xl overflow-hidden">
-                  <img src="/images/lawn-mowing.jpg" alt={t.alt1} className="w-full h-full object-cover" />
+                <div className="relative aspect-[4/5] rounded-xl overflow-hidden">
+                  <Image
+                    src={gallery[0].src}
+                    alt={t[gallery[0].key]}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 280px, 45vw"
+                    loading="lazy"
+                  />
                 </div>
-                <div className="aspect-square rounded-xl overflow-hidden">
-                  <img src="/images/lawn-trimmed.jpg" alt={t.alt2} className="w-full h-full object-cover" />
+                <div className="relative aspect-square rounded-xl overflow-hidden">
+                  <Image
+                    src={gallery[1].src}
+                    alt={t[gallery[1].key]}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 280px, 45vw"
+                    loading="lazy"
+                  />
                 </div>
               </div>
               <div className="space-y-4 pt-8">
-                <div className="aspect-square rounded-xl overflow-hidden">
-                  <img src="/images/backyard-lawn.jpg" alt={t.alt3} className="w-full h-full object-cover" />
+                <div className="relative aspect-square rounded-xl overflow-hidden">
+                  <Image
+                    src={gallery[2].src}
+                    alt={t[gallery[2].key]}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 280px, 45vw"
+                    loading="lazy"
+                  />
                 </div>
-                <div className="aspect-[4/5] rounded-xl overflow-hidden">
-                  <img src="/images/nj-home.jpg" alt={t.alt4} className="w-full h-full object-cover" />
+                <div className="relative aspect-[4/5] rounded-xl overflow-hidden">
+                  <Image
+                    src={gallery[3].src}
+                    alt={t[gallery[3].key]}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 280px, 45vw"
+                    loading="lazy"
+                  />
                 </div>
               </div>
             </div>
@@ -83,4 +121,3 @@ export function About({ locale = "en" }: { locale?: Locale }) {
     </section>
   )
 }
-

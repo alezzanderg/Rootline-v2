@@ -9,12 +9,17 @@ import "./globals.css"
 const display = Fraunces({
   variable: "--font-display-family",
   subsets: ["latin"],
-  axes: ["SOFT", "opsz"],
+  display: "swap",
+  preload: true,
+  adjustFontFallback: true,
 })
 
 const body = Albert_Sans({
   variable: "--font-body",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
+  adjustFontFallback: true,
 })
 
 const siteUrl = getSiteUrl()
@@ -129,10 +134,10 @@ export default function RootLayout({
       className={`${display.variable} ${body.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
+        {children}
         <LocalBusinessSchema />
         <WebsiteSchema />
         <BreadcrumbSchema />
-        {children}
       </body>
     </html>
   )

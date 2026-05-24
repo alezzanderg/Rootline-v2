@@ -3,6 +3,7 @@ import Image from "next/image"
 import { ArrowRight, Phone, Mail, MapPin } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { marketingImages } from "@/lib/marketing-images"
 
 const PHONE_DISPLAY = "(551) 333-5296"
 const PHONE_TEL = "+15513335296"
@@ -56,7 +57,16 @@ export function CTA({ locale = "en" }: { locale?: Locale }) {
       />
 
       <div className="pointer-events-none absolute inset-0 opacity-[0.22]" aria-hidden>
-        <Image src="/images/hero-lawn.jpg" alt="" fill className="object-cover" sizes="100vw" />
+        <Image
+          src={marketingImages.heroLawnMobile}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 1200px"
+          quality={60}
+          loading="lazy"
+          fetchPriority="low"
+        />
       </div>
       <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-cream/95 via-cream/88 to-[#f3efe6]/92" aria-hidden />
 
