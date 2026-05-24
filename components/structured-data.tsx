@@ -1,30 +1,43 @@
-export function LocalBusinessSchema() {
-  const schema = {
+import { businessInfo } from "@/lib/services-data"
+import { absoluteUrl, getSiteUrl } from "@/lib/site-config"
+
+const SITE_IMAGES = {
+  hero: "/images/hero-lawn.jpg",
+  logo: "/images/logo.png",
+  lawnMowing: "/images/lawn-mowing.jpg",
+} as const
+
+function buildLocalBusinessSchema() {
+  const siteUrl = getSiteUrl()
+
+  return {
     "@context": "https://schema.org",
     "@type": "LawnAndGardenService",
-    "@id": "https://www.rootlinenj.com/#business",
-    name: "Rootline Landscaping",
+    "@id": `${siteUrl}/#business`,
+    name: businessInfo.name,
     alternateName: [
       "Rootline Landscaping NJ",
       "Rootline Landscaping Hudson County",
       "Rootline Landscaping Union City",
     ],
+    slogan: "Good roots. Great spaces. — Hudson County, New Jersey",
     description:
-      "Rootline Landscaping provides lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and year-round property maintenance in Hudson County, NJ and nearby North Jersey areas.",
-    url: "https://www.rootlinenj.com",
-    telephone: "+1-551-333-5296",
-    email: "info@rootlinenj.com",
+      "Rootline Landscaping provides lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and year-round property maintenance in Hudson County, NJ and nearby North Jersey areas. Based in Union City — not affiliated with other Rootline Landscaping businesses outside New Jersey.",
+    url: siteUrl,
+    telephone: businessInfo.phoneTel,
+    email: businessInfo.email,
     foundingDate: "2020",
     priceRange: "$$",
     currenciesAccepted: "USD",
     paymentAccepted: "Cash, Credit Card, Check",
     image: [
-      "https://www.rootlinenj.com/images/hero-bg.jpg",
-      "https://www.rootlinenj.com/og-image.jpg",
+      absoluteUrl(SITE_IMAGES.hero),
+      absoluteUrl(SITE_IMAGES.lawnMowing),
+      absoluteUrl(SITE_IMAGES.logo),
     ],
     logo: {
       "@type": "ImageObject",
-      url: "https://www.rootlinenj.com/logo.png",
+      url: absoluteUrl(SITE_IMAGES.logo),
       width: 512,
       height: 512,
     },
@@ -40,6 +53,14 @@ export function LocalBusinessSchema() {
       latitude: 40.7795,
       longitude: -74.0246,
     },
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        opens: "07:00",
+        closes: "18:00",
+      },
+    ],
     areaServed: [
       {
         "@type": "AdministrativeArea",
@@ -96,56 +117,6 @@ export function LocalBusinessSchema() {
         name: "Bergen County",
         sameAs: "https://en.wikipedia.org/wiki/Bergen_County,_New_Jersey",
       },
-      {
-        "@type": "City",
-        name: "Teaneck",
-        sameAs: "https://en.wikipedia.org/wiki/Teaneck,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Garfield",
-        sameAs: "https://en.wikipedia.org/wiki/Garfield,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Fair Lawn",
-        sameAs: "https://en.wikipedia.org/wiki/Fair_Lawn,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Bergenfield",
-        sameAs: "https://en.wikipedia.org/wiki/Bergenfield,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Paramus",
-        sameAs: "https://en.wikipedia.org/wiki/Paramus,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Tenafly",
-        sameAs: "https://en.wikipedia.org/wiki/Tenafly,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Westwood",
-        sameAs: "https://en.wikipedia.org/wiki/Westwood,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Englewood",
-        sameAs: "https://en.wikipedia.org/wiki/Englewood,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Hillsdale",
-        sameAs: "https://en.wikipedia.org/wiki/Hillsdale,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Ridgewood",
-        sameAs: "https://en.wikipedia.org/wiki/Ridgewood,_New_Jersey",
-      },
     ],
     hasOfferCatalog: {
       "@type": "OfferCatalog",
@@ -201,36 +172,36 @@ export function LocalBusinessSchema() {
         },
       ],
     },
-    sameAs: ["https://www.google.com/maps/place/Rootline+Landscaping"],
+    sameAs: [
+      "https://www.instagram.com/rootlinenj/",
+      "https://www.facebook.com/rootlinenj/",
+      process.env.NEXT_PUBLIC_GOOGLE_BUSINESS_URL,
+    ].filter((url): url is string => Boolean(url)),
   }
+}
 
+export function LocalBusinessSchema() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(buildLocalBusinessSchema()) }}
     />
   )
 }
 
 export function WebsiteSchema() {
+  const siteUrl = getSiteUrl()
   const schema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "@id": "https://www.rootlinenj.com/#website",
-    name: "Rootline Landscaping",
-    url: "https://www.rootlinenj.com",
+    "@id": `${siteUrl}/#website`,
+    name: businessInfo.name,
+    url: siteUrl,
     description:
       "Lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and property maintenance in Hudson County, NJ and nearby North Jersey areas.",
+    inLanguage: ["en-US", "es-US"],
     publisher: {
-      "@id": "https://www.rootlinenj.com/#business",
-    },
-    potentialAction: {
-      "@type": "SearchAction",
-      target: {
-        "@type": "EntryPoint",
-        urlTemplate: "https://www.rootlinenj.com/search?q={search_term_string}",
-      },
-      "query-input": "required name=search_term_string",
+      "@id": `${siteUrl}/#business`,
     },
   }
 
@@ -251,7 +222,7 @@ export function BreadcrumbSchema() {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: "https://www.rootlinenj.com",
+        item: getSiteUrl(),
       },
     ],
   }

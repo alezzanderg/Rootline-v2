@@ -3,6 +3,7 @@ import { Albert_Sans, Fraunces } from "next/font/google"
 
 import { BreadcrumbSchema, LocalBusinessSchema, WebsiteSchema } from "@/components/structured-data"
 import { siteIcons } from "@/lib/site-icons"
+import { getGoogleSiteVerification, getSiteUrl } from "@/lib/site-config"
 import "./globals.css"
 
 const display = Fraunces({
@@ -16,7 +17,8 @@ const body = Albert_Sans({
   subsets: ["latin"],
 })
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.rootlinenj.com"
+const siteUrl = getSiteUrl()
+const googleVerification = getGoogleSiteVerification()
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -98,7 +100,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteUrl,
   },
-  verification: {},
+  verification: googleVerification ? { google: googleVerification } : {},
   other: {
     "geo.region": "US-NJ",
     "geo.placename": "Hudson County, New Jersey",

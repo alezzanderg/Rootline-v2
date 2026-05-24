@@ -1,9 +1,9 @@
 import Image from "next/image"
 import Link from "next/link"
 
-const LOGO_FOOTER_SRC = "/logoFooter.png"
+import { localizedPath, type Locale } from "@/lib/locale-path"
 
-type Locale = "en" | "es"
+const LOGO_FOOTER_SRC = "/logoFooter.png"
 
 const copy = {
   en: {
@@ -13,6 +13,7 @@ const copy = {
     services: "SERVICES",
     servicesLink: "Services",
     aboutLink: "About Us",
+    areasLink: "Service Areas",
     contactLink: "Contact",
     mowing: "Lawn Mowing",
     trim: "Trimming & Edging",
@@ -32,6 +33,7 @@ const copy = {
     services: "SERVICIOS",
     servicesLink: "Servicios",
     aboutLink: "Nosotros",
+    areasLink: "Zonas de servicio",
     contactLink: "Contacto",
     mowing: "Corte de cesped",
     trim: "Recorte y bordeado",
@@ -65,6 +67,9 @@ function FacebookIcon({ className }: { className?: string }) {
 
 export function Footer({ locale = "en" }: { locale?: Locale }) {
   const t = copy[locale]
+  const home = localizedPath("/", locale)
+  const servicesHref = `${home}#services`
+  const contactHref = `${home}#contact`
 
   return (
     <footer className="bg-[#151515] text-[#E7E2D6]">
@@ -81,9 +86,10 @@ export function Footer({ locale = "en" }: { locale?: Locale }) {
           <div>
             <h4 className="mb-4 font-[family-name:var(--font-display-family)] text-lg">{t.quickLinks}</h4>
             <ul className="space-y-3">
-              <li><Link href="#services" className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.servicesLink}</Link></li>
-              <li><Link href="#about" className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.aboutLink}</Link></li>
-              <li><Link href="#contact" className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.contactLink}</Link></li>
+              <li><Link href={servicesHref} className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.servicesLink}</Link></li>
+              <li><Link href={localizedPath("/about", locale)} className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.aboutLink}</Link></li>
+              <li><Link href={localizedPath("/service-areas", locale)} className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.areasLink}</Link></li>
+              <li><Link href={contactHref} className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.contactLink}</Link></li>
             </ul>
           </div>
 

@@ -1,10 +1,13 @@
 import type { MetadataRoute } from "next"
 
 import { getAllServicePages } from "@/lib/services-data"
+import { getSiteUrl } from "@/lib/site-config"
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.rootlinenj.com"
+  const baseUrl = getSiteUrl()
   const currentDate = new Date()
+
+  const marketingPaths = ["/about", "/service-areas"] as const
 
   const staticPages: MetadataRoute.Sitemap = [
     {
@@ -19,6 +22,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    ...marketingPaths.flatMap((path) => [
+      {
+        url: `${baseUrl}${path}`,
+        lastModified: currentDate,
+        changeFrequency: "monthly" as const,
+        priority: 0.85,
+      },
+      {
+        url: `${baseUrl}/es${path}`,
+        lastModified: currentDate,
+        changeFrequency: "monthly" as const,
+        priority: 0.8,
+      },
+    ]),
   ]
 
   const serviceLocationPages: MetadataRoute.Sitemap = getAllServicePages().flatMap(({ service, location }) => [

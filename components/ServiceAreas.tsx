@@ -83,11 +83,21 @@ function AreaList({ slugs, locale }: { slugs: LocationKey[]; locale: Locale }) {
   )
 }
 
-export function ServiceAreas({ locale = "en" }: { locale?: Locale }) {
+export function ServiceAreas({
+  locale = "en",
+  variant = "home",
+}: {
+  locale?: Locale
+  variant?: "home" | "page"
+}) {
   const t = copy[locale]
+  const sectionClass =
+    variant === "page"
+      ? "bg-background py-16 md:py-20"
+      : "scroll-mt-24 flex min-h-screen flex-col justify-center bg-background py-24"
 
   return (
-    <section id="service-areas" className="scroll-mt-24 flex min-h-screen flex-col justify-center bg-background py-24">
+    <section id="service-areas" className={sectionClass}>
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-14 text-center">
           <p className="mb-4 font-semibold tracking-wider text-accent uppercase">{t.tag}</p>

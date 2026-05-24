@@ -40,7 +40,7 @@ export function Navbar({ locale = "en" }: { locale?: Locale }) {
   const homePath = localizedPath("/", locale)
   const onHome = pathname === homePath
   const servicesHref = onHome ? "#services" : `${homePath}#services`
-  const aboutHref = onHome ? "#about" : `${homePath}#about`
+  const aboutHref = onHome ? "#about" : localizedPath("/about", locale)
   const contactHref = onHome ? "#contact" : `${homePath}#contact`
 
   return (
