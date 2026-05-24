@@ -18,9 +18,12 @@ type Job = {
   quality?: number
 }
 
+/** Navbar wordmark (horizontal ROOTLINE + LANDSCAPING) */
+const NAVBAR_LOGO_SRC = "public/images/logo-navbar.png"
+
 const jobs: Job[] = [
-  { input: "public/images/logo.png", output: "logo-nav.webp", width: 280, quality: 85 },
-  { input: "public/images/logoFooter.png", output: "logo-footer.webp", width: 360, quality: 85 },
+  { input: NAVBAR_LOGO_SRC, output: "logo-navbar.webp", width: 502, quality: 90 },
+  { input: "public/logoFooter.png", output: "logo-footer.webp", width: 360, quality: 88 },
   { input: "public/images/hero-lawn.jpg", output: "hero-lawn.webp", width: 1200, quality: 80 },
   { input: "public/images/hero-lawn.jpg", output: "hero-lawn-mobile.webp", width: 640, quality: 78 },
   { input: "public/images/lawn-mowing.jpg", output: "lawn-mowing.webp", width: 600, quality: 80 },

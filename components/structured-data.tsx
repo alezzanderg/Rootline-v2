@@ -5,7 +5,7 @@ import { marketingImages } from "@/lib/marketing-images"
 
 const SITE_IMAGES = {
   hero: marketingImages.heroLawn,
-  logo: marketingImages.logoNav,
+  logo: "/images/logo.png",
   lawnMowing: marketingImages.lawnMowing,
 } as const
 

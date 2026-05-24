@@ -49,15 +49,16 @@ export function Navbar({ locale = "en" }: { locale?: Locale }) {
         <div className="flex h-20 items-center justify-between">
           <Link
             href={homePath}
-            className="relative flex h-9 w-[min(100%,11rem)] shrink-0 items-center sm:h-11 sm:w-[min(100%,14rem)] md:w-[min(100%,16rem)]"
+            className="flex shrink-0 items-center"
             onClick={() => setIsOpen(false)}
           >
             <Image
               src={marketingImages.logoNav}
               alt="Rootline Landscaping"
-              fill
-              className="object-contain object-left"
-              sizes="(max-width: 768px) 176px, 224px"
+              width={2508}
+              height={627}
+              className="h-9 w-auto max-w-[10.5rem] sm:h-11 sm:max-w-[13rem] md:h-12 md:max-w-[15rem]"
+              sizes="(max-width: 768px) 168px, (max-width: 1024px) 208px, 240px"
               priority
             />
           </Link>
