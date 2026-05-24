@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --forest: #1e2d23;
+  --moss: #6c8c4a;
+  --cream: #e7e2d6;
+  --terra: #c45a3a;
+  --ink: #1a1a1a;
+  --cream-muted: rgb(231 226 214 / 0.65);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--cream);
+  --color-foreground: var(--ink);
+  --color-primary: var(--moss);
+  --color-primary-foreground: var(--cream);
+  --color-secondary: var(--forest);
+  --color-secondary-foreground: var(--cream);
+  --color-accent: var(--terra);
+  --color-accent-foreground: var(--cream);
+  --color-destructive: #b91c1c;
+  --color-destructive-foreground: #fef2f2;
+  --color-ring: var(--moss);
+  --color-forest: var(--forest);
+  --color-moss: var(--moss);
+  --color-moss-light: #8faa6f;
+  --color-cream: var(--cream);
+  --color-cream-muted: rgb(231 226 214 / 0.65);
+  --color-terra: var(--terra);
+  --color-ink: var(--ink);
+  --color-muted-foreground: rgb(26 26 26 / 0.62);
+  --color-card: #f7f4ed;
+  --color-border: rgb(30 45 35 / 0.14);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display-family);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+}
+
+.hero-mesh {
+  background:
+    radial-gradient(ellipse 80% 55% at 20% -10%, rgb(108 140 74 / 0.35), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgb(196 90 58 / 0.12), transparent),
+    linear-gradient(165deg, #1e2d23 0%, #162018 48%, #1a221a 100%);
+}
+
+.hero-grain {
+  opacity: 0.22;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.cta-section {
+  background: var(--cream);
+}
+
+.cta-mesh {
+  background:
+    radial-gradient(ellipse 85% 65% at 0% 100%, rgb(108 140 74 / 0.22), transparent 55%),
+    radial-gradient(ellipse 65% 50% at 100% 0%, rgb(196 90 58 / 0.14), transparent 48%),
+    radial-gradient(ellipse 45% 35% at 50% 80%, rgb(108 140 74 / 0.08), transparent),
+    linear-gradient(180deg, rgb(30 45 35 / 0.06) 0%, transparent 18%, #e7e2d6 42%, #f3efe6 100%);
+}
+
+.cta-grain {
+  opacity: 0.12;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes cta-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate(2%, -1%) scale(1.04);
+  }
+}
+
+.cta-glow-orb {
+  animation: cta-glow 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-glow-orb {
+    animation: none;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.delay-1 {
+  animation-delay: 120ms;
+}
+.delay-2 {
+  animation-delay: 260ms;
+}
+.delay-3 {
+  animation-delay: 400ms;
 }

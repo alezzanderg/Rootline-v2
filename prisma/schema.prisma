@@ -1,0 +1,358 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CREW_LEAD
+  TECHNICIAN
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+}
+
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InventoryUnit {
+  BAG
+  LB
+  KG
+  LITER
+  GALLON
+  UNIT
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  ASSIGNED
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+enum ServiceCategory {
+  CORE
+  ADD_ON
+  CLEANUP
+}
+
+enum PlanTier {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum MembershipStartWeek {
+  THIS_WEEK
+  NEXT_WEEK
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String?
+  firstName    String?
+  lastName     String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer Customer?
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  userId    String?  @unique
+  firstName String
+  lastName  String
+  phone     String
+  email     String?
+  notes            String?
+  difficulty       DifficultyLevel?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  properties Property[]
+  quotes     Quote[]
+  memberships CustomerMembership[]
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Property {
+  id          String   @id @default(uuid())
+  customerId  String
+  label       String?
+  street      String
+  city        String
+  state       String   @default("NJ")
+  zipCode     String
+  accessNotes          String?
+  lotSizeSqFt          Int?
+  yardFront            Boolean          @default(false)
+  yardBack             Boolean          @default(false)
+  yardSides            Boolean          @default(false)
+  jobDifficulty        DifficultyLevel?
+  estimatedDurationMin Int?
+  createdAt            DateTime         @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer    Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  jobs        Job[]
+  quotes      Quote[]
+  memberships CustomerMembership[]
+}
+
+model ServiceCatalog {
+  id               String   @id @default(uuid())
+  slug             String   @unique
+  name             String
+  description      String?
+  category         ServiceCategory @default(CORE)
+  defaultPrice     Decimal? @db.Decimal(10, 2)
+  smallPrice       Decimal? @db.Decimal(10, 2)
+  mediumPrice      Decimal? @db.Decimal(10, 2)
+  largePrice       Decimal? @db.Decimal(10, 2)
+  startingAtPrice  Decimal? @db.Decimal(10, 2)
+  maxRangePrice    Decimal? @db.Decimal(10, 2)
+  memberDiscount   Decimal? @db.Decimal(5, 2)
+  pricingUnit      String?
+  includes         Json?
+  displayOrder     Int      @default(0)
+  estimatedMinutes Int?
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  quoteItems QuoteItem[]
+  jobItems   JobItem[]
+}
+
+model MembershipPlan {
+  id                String   @id @default(uuid())
+  slug              String   @unique
+  name              String
+  description       String?
+  tier              PlanTier
+  monthlyPrice      Decimal  @db.Decimal(10, 2)
+  visitsPerMonth    Int      @default(4)
+  addOnDiscount     Decimal  @default(0) @db.Decimal(5, 2)
+  priorityScheduling Boolean @default(true)
+  benefits          Json?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customers CustomerMembership[]
+}
+
+model CustomerMembership {
+  id                String               @id @default(uuid())
+  customerId        String
+  planId            String
+  propertyId        String?
+  status            MembershipStatus     @default(ACTIVE)
+  startWeek         MembershipStartWeek?
+  preferredWeekday  Int?
+  preferredDay      String?
+  preferredTime     String?
+  notes             String?
+  startsAt          DateTime             @default(now())
+  endsAt            DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  customer Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan     MembershipPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  property Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, status])
+}
+
+model Quote {
+  id          String      @id @default(uuid())
+  customerId  String
+  propertyId  String?
+  status      QuoteStatus @default(DRAFT)
+  subtotal    Decimal     @default(0) @db.Decimal(10, 2)
+  tax         Decimal     @default(0) @db.Decimal(10, 2)
+  total       Decimal     @default(0) @db.Decimal(10, 2)
+  validUntil  DateTime?
+  sentAt      DateTime?
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  customer Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  property Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  items    QuoteItem[]
+  jobs     Job[]
+}
+
+model QuoteItem {
+  id          String   @id @default(uuid())
+  quoteId     String
+  serviceId   String
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  lineTotal   Decimal  @db.Decimal(10, 2)
+  description String?
+
+  quote   Quote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service ServiceCatalog @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+}
+
+model Employee {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  phone        String?
+  role         Role
+  isActive     Boolean  @default(true)
+  hiredAt      DateTime @default(now())
+  availability String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments JobAssignment[]
+}
+
+model Job {
+  id          String    @id @default(uuid())
+  propertyId  String
+  quoteId     String?
+  title       String
+  status      JobStatus @default(SCHEDULED)
+  scheduledAt DateTime
+  startedAt   DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  property    Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  quote       Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  assignments JobAssignment[]
+  items       JobItem[]
+}
+
+model JobAssignment {
+  id         String   @id @default(uuid())
+  jobId      String
+  employeeId String
+  assignedAt DateTime @default(now())
+
+  job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, employeeId])
+}
+
+model JobItem {
+  id          String   @id @default(uuid())
+  jobId       String
+  serviceId   String
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal? @db.Decimal(10, 2)
+  description String?
+
+  job     Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  service ServiceCatalog @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  website     String?
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products  Product[]
+  priceLogs SupplierPriceLog[]
+}
+
+model Product {
+  id            String        @id @default(uuid())
+  name          String
+  sku           String?       @unique
+  unit          InventoryUnit @default(UNIT)
+  stockQty      Decimal       @default(0) @db.Decimal(10, 2)
+  reorderLevel  Decimal       @default(0) @db.Decimal(10, 2)
+  unitCost      Decimal?      @db.Decimal(10, 2)
+  retailPrice   Decimal?      @db.Decimal(10, 2)
+  supplierId    String?
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  supplier  Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  priceLogs SupplierPriceLog[]
+}
+
+model SupplierPriceLog {
+  id         String   @id @default(uuid())
+  productId  String
+  supplierId String
+  unitCost   Decimal  @db.Decimal(10, 2)
+  recordedAt DateTime @default(now())
+  note       String?
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([productId, recordedAt])
+  @@index([supplierId, recordedAt])
+}
+
+model Tool {
+  id               String          @id @default(uuid())
+  name             String
+  category         String?
+  serialNumber     String?         @unique
+  status           EquipmentStatus @default(AVAILABLE)
+  purchaseDate     DateTime?
+  lastMaintenance  DateTime?
+  nextMaintenance  DateTime?
+  maintenanceNotes String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
