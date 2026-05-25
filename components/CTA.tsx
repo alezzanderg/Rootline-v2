@@ -19,7 +19,7 @@ const copy = {
     contact: "GET IN TOUCH",
     phoneLabel: "Phone",
     areaLabel: "Service Area",
-    areaValue: "Hudson County & nearby North Jersey",
+    areaValue: "Bergen County and Hudson County",
   },
   es: {
     title: "LISTO PARA MEJORAR TU PATIO?",
@@ -29,7 +29,7 @@ const copy = {
     contact: "CONTACTO",
     phoneLabel: "Teléfono",
     areaLabel: "Area de servicio",
-    areaValue: "Hudson County y norte de New Jersey",
+    areaValue: "Bergen County y Hudson County",
   },
 } as const
 
