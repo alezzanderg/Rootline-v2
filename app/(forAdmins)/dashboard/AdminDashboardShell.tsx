@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useState } from "react"
 import {
   BriefcaseBusiness,
@@ -9,9 +10,11 @@ import {
   ClipboardList,
   FolderOpen,
   LayoutDashboard,
+  Menu,
   Package,
   Users,
   Wrench,
+  X,
 } from "lucide-react"
 
 const ADMIN_LOGO_SRC = "/logoFooter.png"
@@ -32,11 +35,13 @@ export default function AdminDashboardShell({
   email,
   signOutAction,
 }: Readonly<AdminDashboardShellProps>) {
+  const pathname = usePathname()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const collapsedSidebarWidth = "lg:left-20"
   const expandedSidebarWidth = "lg:left-80"
   const navItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/scheduling", label: "Scheduling", icon: CalendarClock },
     { href: "/dashboard/estimados", label: "Estimados", icon: ClipboardList },
     { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -44,7 +49,14 @@ export default function AdminDashboardShell({
     { href: "/dashboard/productos", label: "Productos", icon: Package },
     { href: "/dashboard/herramientas", label: "Herramientas", icon: Wrench },
     { href: "/dashboard/empleados", label: "Empleados y roles", icon: FolderOpen },
-  ]
+  ] as const
+
+  const primaryMobileNav = navItems.slice(0, 5)
+
+  function isActiveRoute(href: string) {
+    if (href === "/dashboard") return pathname === href
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -55,6 +67,14 @@ export default function AdminDashboardShell({
       >
         <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="inline-flex rounded-md border border-white/15 p-2 text-[#E7E2D6]/90 transition hover:bg-[#262626] lg:hidden"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed((prev) => !prev)}
@@ -101,6 +121,51 @@ export default function AdminDashboardShell({
         </div>
       </header>
 
+      {isMobileMenuOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            aria-label="Close navigation menu"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <aside className="relative h-full w-[86%] max-w-xs overflow-y-auto border-r border-white/10 bg-[#151515] p-4">
+            <div className="mb-5 flex items-center justify-between">
+              <p className="text-sm font-semibold tracking-wider text-[#E7E2D6] uppercase">Menu</p>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="rounded-md border border-white/15 p-2 text-[#E7E2D6]/90"
+                aria-label="Close navigation menu"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <nav className="space-y-1.5">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                const isActive = isActiveRoute(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
+                      isActive
+                        ? "bg-[#1f1f1f] text-[#E7E2D6]"
+                        : "text-[#E7E2D6]/85 hover:bg-[#262626]"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+          </aside>
+        </div>
+      ) : null}
+
       <div className="flex">
         <aside
           className={`fixed top-0 left-0 z-40 hidden h-screen shrink-0 overflow-hidden border-r border-white/10 bg-[#151515] transition-[width] duration-300 ease-in-out lg:block ${
@@ -138,13 +203,14 @@ export default function AdminDashboardShell({
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon
+                const isActive = isActiveRoute(item.href)
 
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`group flex items-center rounded-md py-2 text-sm font-medium transition-all duration-300 ${
-                      item.active
+                      isActive
                         ? "bg-[#1f1f1f] text-[#E7E2D6]"
                         : "text-[#E7E2D6]/85 hover:bg-[#262626]"
                     } ${isSidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"}`}
@@ -168,13 +234,34 @@ export default function AdminDashboardShell({
         </aside>
 
         <main
-          className={`min-w-0 flex-1 px-4 py-24 transition-[margin] duration-300 ease-in-out sm:px-6 lg:px-10 ${
+          className={`min-w-0 flex-1 px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-22 transition-[margin] duration-300 ease-in-out sm:px-6 sm:pb-24 lg:px-10 lg:pb-12 lg:pt-24 ${
             isSidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
           }`}
         >
           {children}
         </main>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#151515]/95 px-2 pb-[calc(0.45rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {primaryMobileNav.map((item) => {
+            const Icon = item.icon
+            const isActive = isActiveRoute(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`min-w-21 shrink-0 rounded-md px-2 py-1.5 text-center text-[11px] font-medium transition ${
+                  isActive ? "bg-[#1f1f1f] text-[#E7E2D6]" : "text-[#E7E2D6]/75"
+                }`}
+              >
+                <Icon className="mx-auto mb-1 h-4 w-4" />
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

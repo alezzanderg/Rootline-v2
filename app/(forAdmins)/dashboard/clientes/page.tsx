@@ -2,6 +2,8 @@ import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
 import { EditDialog } from "@/components/ui/EditDialog"
+import { PhoneInput } from "@/components/ui/PhoneInput"
+import { parsePhoneRequired } from "@/lib/phone-format"
 
 function parseStr(v: FormDataEntryValue | null) {
   return typeof v === "string" ? v.trim() : ""
@@ -38,7 +40,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     "use server"
     const firstName = titleCase(parseStr(formData.get("firstName")))
     const lastName = titleCase(parseStr(formData.get("lastName")))
-    const phone = parseStr(formData.get("phone"))
+    const phone = parsePhoneRequired(formData.get("phone"))
     if (!firstName || !lastName || !phone) return
     const rawNotes = parseOptStr(formData.get("notes"))
     await prisma.customer.create({
@@ -159,7 +161,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             </label>
             <label className="grid gap-1">
               <span className={lbl}>Teléfono</span>
-              <input name="phone" required placeholder="(732) 555-0000" className={ic} />
+              <PhoneInput required className={ic} />
             </label>
             <label className="grid gap-1">
               <span className={lbl}>Email</span>

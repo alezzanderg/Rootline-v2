@@ -3,9 +3,11 @@ import Link from "next/link"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { EditDialog } from "@/components/ui/EditDialog"
+import { PhoneInput } from "@/components/ui/PhoneInput"
 import { PropertiesDialog } from "@/components/ui/PropertiesDialog"
 import { CustomerActionsMenu } from "@/components/ui/CustomerActionsMenu"
 import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
+import { parsePhoneRequired } from "@/lib/phone-format"
 
 // ── helpers ────────────────────────────────────────────────────
 function parseStr(v: FormDataEntryValue | null) {
@@ -74,7 +76,7 @@ export default async function CustomerDetailPage({
     const cId = parseStr(formData.get("id"))
     const firstName = titleCase(parseStr(formData.get("firstName")))
     const lastName = titleCase(parseStr(formData.get("lastName")))
-    const phone = parseStr(formData.get("phone"))
+    const phone = parsePhoneRequired(formData.get("phone"))
     if (!cId || !firstName || !lastName || !phone) return
     const rawNotes = parseOptStr(formData.get("notes"))
     await prisma.customer.update({
@@ -326,7 +328,7 @@ export default async function CustomerDetailPage({
               </label>
               <label className="grid gap-1">
                 <span className={lbl}>Teléfono</span>
-                <input name="phone" defaultValue={customer.phone} required className={ic} />
+                <PhoneInput defaultValue={customer.phone} required className={ic} />
               </label>
               <label className="grid gap-1">
                 <span className={lbl}>Email</span>
