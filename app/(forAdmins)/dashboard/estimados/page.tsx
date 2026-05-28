@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache"
 import Link from "next/link"
 
 import { AssignPlanCustomerPropertyFields } from "@/components/ui/AssignPlanCustomerPropertyFields"
+import { recalcQuoteTotals } from "@/lib/app-settings"
 import { prisma } from "@/lib/prisma"
 
 type PageProps = {
@@ -23,7 +24,7 @@ export default async function EstimadosPage({ searchParams }: PageProps) {
     const customerId = parseStr(formData.get("customerId"))
     if (!customerId) return
     const validUntilRaw = parseOptStr(formData.get("validUntil"))
-    await prisma.quote.create({
+    const createdQuote = await prisma.quote.create({
       data: {
         customerId,
         propertyId: parseOptStr(formData.get("propertyId")),
@@ -31,7 +32,9 @@ export default async function EstimadosPage({ searchParams }: PageProps) {
         notes: parseOptStr(formData.get("notes")),
         validUntil: validUntilRaw ? new Date(validUntilRaw) : null,
       },
+      select: { id: true },
     })
+    await recalcQuoteTotals(createdQuote.id)
     revalidatePath("/dashboard/estimados")
   }
 

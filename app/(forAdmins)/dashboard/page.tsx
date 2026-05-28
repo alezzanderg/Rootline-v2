@@ -41,6 +41,10 @@ export default function AdminDashboardPage() {
             <p className="font-semibold">Empleados y roles</p>
             <p className="mt-1 text-sm text-foreground/65">Usuarios, roles y permisos.</p>
           </a>
+          <a href="/dashboard/configuracion" className="rounded-lg border border-foreground/15 bg-background p-4 hover:border-accent/60">
+            <p className="font-semibold">Configuración</p>
+            <p className="mt-1 text-sm text-foreground/65">Tax rate global y ajustes del sistema.</p>
+          </a>
         </div>
       </div>
     </section>

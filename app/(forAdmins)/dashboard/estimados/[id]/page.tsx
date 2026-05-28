@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
+import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
 import { prisma } from "@/lib/prisma"
 
 type Props = {
@@ -62,9 +63,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
       },
     })
 
-    const items = await prisma.quoteItem.findMany({ where: { quoteId } })
-    const subtotal = items.reduce((acc, item) => acc + Number(item.lineTotal), 0)
-    await prisma.quote.update({ where: { id: quoteId }, data: { subtotal, total: subtotal } })
+    await recalcQuoteTotals(quoteId)
 
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
@@ -77,9 +76,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
     if (!quoteId || !itemId) return
 
     await prisma.quoteItem.delete({ where: { id: itemId } })
-    const items = await prisma.quoteItem.findMany({ where: { quoteId } })
-    const subtotal = items.reduce((acc, item) => acc + Number(item.lineTotal), 0)
-    await prisma.quote.update({ where: { id: quoteId }, data: { subtotal, total: subtotal } })
+    await recalcQuoteTotals(quoteId)
 
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
@@ -116,7 +113,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
     redirect("/dashboard/estimados")
   }
 
-  const [quote, services] = await Promise.all([
+  const [quote, services, taxRatePercent] = await Promise.all([
     prisma.quote.findUnique({
       where: { id },
       include: {
@@ -133,6 +130,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
       select: { id: true, name: true, defaultPrice: true, startingAtPrice: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
+    getTaxRatePercent(),
   ])
 
   if (!quote) notFound()
@@ -169,18 +167,60 @@ export default async function EstimadoDetailPage({ params }: Props) {
             <p className="text-sm text-foreground/55">{propertyAddress}</p>
             <p className="mt-1 font-mono text-xs text-foreground/45">#{quote.id.slice(0, 8)}</p>
           </div>
-          <div className="text-right">
-            <span
-              className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}
-            >
-              {statusLabel(quote.status)}
-            </span>
-            <p className="mt-2 text-lg font-semibold tabular-nums">${Number(quote.total).toFixed(2)}</p>
+          <div className="flex items-start gap-2">
+            <div className="text-right">
+              <span
+                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}
+              >
+                {statusLabel(quote.status)}
+              </span>
+              <p className="mt-2 text-lg font-semibold tabular-nums">${Number(quote.total).toFixed(2)}</p>
+            </div>
+            <details className="relative">
+              <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 text-sm text-foreground/60 transition hover:bg-foreground/5">
+                ⋯
+              </summary>
+              <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-foreground/12 bg-[#fdfcf8] p-2 shadow-lg">
+                <form action={deleteQuoteAction}>
+                  <input type="hidden" name="id" value={quote.id} />
+                  <label className="mb-2 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground/60 hover:bg-foreground/5">
+                    <input type="checkbox" name="confirmDelete" />
+                    Confirmar eliminación
+                  </label>
+                  <button
+                    type="submit"
+                    className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                  >
+                    Eliminar estimado
+                  </button>
+                </form>
+              </div>
+            </details>
           </div>
         </div>
       </div>
 
       <div className="mt-4 grid gap-4">
+        <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+          <p className="mb-3 text-sm font-semibold text-foreground/80">Estado del estimado</p>
+          <div className="flex flex-wrap gap-2">
+            {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
+              <form key={s} action={changeStatusAction}>
+                <input type="hidden" name="quoteId" value={quote.id} />
+                <input type="hidden" name="status" value={s} />
+                <button
+                  type="submit"
+                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
+                    quote.status === s ? "border-accent/60 bg-accent/20 text-accent" : "border-foreground/20 text-foreground/70"
+                  }`}
+                >
+                  {statusLabel(s)}
+                </button>
+              </form>
+            ))}
+          </div>
+        </div>
+
         <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
           <input type="hidden" name="id" value={quote.id} />
           <p className="mb-3 text-sm font-semibold text-foreground/80">Detalles</p>
@@ -271,37 +311,23 @@ export default async function EstimadoDetailPage({ params }: Props) {
               ))}
             </ul>
           )}
-        </div>
-
-        <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-          <p className="mb-3 text-sm font-semibold text-foreground/80">Estado</p>
-          <div className="flex flex-wrap gap-2">
-            {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
-              <form key={s} action={changeStatusAction}>
-                <input type="hidden" name="quoteId" value={quote.id} />
-                <input type="hidden" name="status" value={s} />
-                <button
-                  type="submit"
-                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                    quote.status === s ? "border-accent/60 bg-accent/20 text-accent" : "border-foreground/20 text-foreground/70"
-                  }`}
-                >
-                  {statusLabel(s)}
-                </button>
-              </form>
-            ))}
+          <div className="border-t border-foreground/10 bg-foreground/2 px-4 py-3">
+            <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
+              <div className="flex items-center justify-between text-foreground/65">
+                <span>Subtotal</span>
+                <span className="tabular-nums">${Number(quote.subtotal).toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-foreground/65">
+              <span>Tax ({taxRatePercent.toFixed(3)}%)</span>
+              <span className="tabular-nums">${Number(quote.tax).toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-foreground/12 pt-1.5 font-semibold text-foreground">
+                <span>Total</span>
+                <span className="tabular-nums">${Number(quote.total).toFixed(2)}</span>
+              </div>
+            </div>
           </div>
         </div>
-
-        <form action={deleteQuoteAction} className="rounded-2xl border border-rose-300/40 bg-rose-50/40 p-4">
-          <input type="hidden" name="id" value={quote.id} />
-          <label className="mb-3 flex items-center gap-2 text-sm text-rose-700">
-            <input type="checkbox" name="confirmDelete" /> Confirmar eliminacion
-          </label>
-          <button type="submit" className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white">
-            Eliminar estimado
-          </button>
-        </form>
       </div>
     </section>
   )

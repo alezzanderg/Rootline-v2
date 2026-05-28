@@ -12,7 +12,7 @@ import {
   LayoutDashboard,
   Menu,
   Package,
-  PanelLeft,
+  Settings,
   Users,
   Wrench,
   X,
@@ -50,9 +50,8 @@ export default function AdminDashboardShell({
     { href: "/dashboard/productos", label: "Productos", icon: Package },
     { href: "/dashboard/herramientas", label: "Herramientas", icon: Wrench },
     { href: "/dashboard/empleados", label: "Empleados y roles", icon: FolderOpen },
+    { href: "/dashboard/configuracion", label: "Configuracion", icon: Settings },
   ] as const
-
-  const primaryMobileNav = navItems.slice(0, 5)
 
   function isActiveRoute(href: string) {
     if (href === "/dashboard") return pathname === href
@@ -235,44 +234,13 @@ export default function AdminDashboardShell({
         </aside>
 
         <main
-          className={`min-w-0 flex-1 px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-22 transition-[margin] duration-300 ease-in-out sm:px-6 sm:pb-24 lg:px-10 lg:pb-12 lg:pt-24 ${
+          className={`min-w-0 flex-1 px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-22 transition-[margin] duration-300 ease-in-out sm:px-6 sm:pb-8 lg:px-10 lg:pb-12 lg:pt-24 ${
             isSidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
           }`}
         >
           {children}
         </main>
       </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#151515]/95 px-2 pb-[calc(0.45rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {primaryMobileNav.map((item) => {
-            const Icon = item.icon
-            const isActive = isActiveRoute(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`min-w-21 shrink-0 rounded-md px-2 py-1.5 text-center text-[11px] font-medium transition ${
-                  isActive ? "bg-[#1f1f1f] text-[#E7E2D6]" : "text-[#E7E2D6]/75"
-                }`}
-              >
-                <Icon className="mx-auto mb-1 h-4 w-4" />
-                {item.label}
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
-
-      <button
-        type="button"
-        onClick={() => setIsMobileMenuOpen(true)}
-        className="fixed bottom-[calc(4.7rem+env(safe-area-inset-bottom))] right-3 z-40 inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#1f1f1f]/95 px-3 py-2 text-xs font-semibold text-[#E7E2D6] shadow-lg backdrop-blur transition hover:bg-[#2b2b2b] lg:hidden"
-        aria-label="Open sections sidebar"
-      >
-        <PanelLeft className="h-3.5 w-3.5" />
-        Secciones
-      </button>
     </div>
   )
 }

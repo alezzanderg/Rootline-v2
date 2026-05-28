@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { PropertyMetricsStepper } from "@/components/ui/PropertyMetricsStepper"
 
 type Property = {
   id: string
@@ -10,6 +11,12 @@ type Property = {
   state: string
   zipCode: string
   lotSizeSqFt: number | null
+  flowerBedsCount: number | null
+  shrubsCount: number | null
+  treesCount: number | null
+  turfAreaSqFt: number | null
+  bedsAreaSqFt: number | null
+  hardscapeAreaSqFt: number | null
   accessNotes: string | null
   yardFront: boolean
   yardBack: boolean
@@ -35,6 +42,7 @@ export function PropertiesDialog({
   updatePropertyAction,
   deletePropertyAction,
   createPropertyAction,
+  allowCreate = true,
 }: {
   customerName: string
   customerId: string
@@ -42,6 +50,7 @@ export function PropertiesDialog({
   updatePropertyAction: (formData: FormData) => Promise<void>
   deletePropertyAction: (formData: FormData) => Promise<void>
   createPropertyAction: (formData: FormData) => Promise<void>
+  allowCreate?: boolean
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -147,6 +156,19 @@ export function PropertiesDialog({
                     <span className={lbl}>Lot size (sqft)</span>
                     <input name="lotSizeSqFt" type="number" defaultValue={property.lotSizeSqFt ?? ""} className={ic} />
                   </label>
+                  <div className="grid gap-1 sm:col-span-2">
+                    <span className={lbl}>Métricas de mantenimiento</span>
+                    <PropertyMetricsStepper
+                      initial={{
+                        flowerBedsCount: property.flowerBedsCount ?? 0,
+                        shrubsCount: property.shrubsCount ?? 0,
+                        treesCount: property.treesCount ?? 0,
+                        turfAreaSqFt: property.turfAreaSqFt ?? 0,
+                        bedsAreaSqFt: property.bedsAreaSqFt ?? 0,
+                        hardscapeAreaSqFt: property.hardscapeAreaSqFt ?? 0,
+                      }}
+                    />
+                  </div>
                   <label className="grid gap-1 sm:col-span-2">
                     <span className={lbl}>Notas de acceso</span>
                     <input name="accessNotes" defaultValue={property.accessNotes ?? ""} className={ic} />
@@ -226,6 +248,12 @@ export function PropertiesDialog({
                       </p>
                       <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-foreground/40">
                         {property.lotSizeSqFt && <span>{property.lotSizeSqFt.toLocaleString()} sqft</span>}
+                        {property.flowerBedsCount !== null && <span>{property.flowerBedsCount} camas</span>}
+                        {property.shrubsCount !== null && <span>{property.shrubsCount} arbustos</span>}
+                        {property.treesCount !== null && <span>{property.treesCount} árboles</span>}
+                        {property.turfAreaSqFt !== null && <span>césped {property.turfAreaSqFt.toLocaleString()} sqft</span>}
+                        {property.bedsAreaSqFt !== null && <span>camas {property.bedsAreaSqFt.toLocaleString()} sqft</span>}
+                        {property.hardscapeAreaSqFt !== null && <span>hardscape {property.hardscapeAreaSqFt.toLocaleString()} sqft</span>}
                         {property.accessNotes && <span>{property.accessNotes}</span>}
                         {property.estimatedDurationMin && <span>~{property.estimatedDurationMin} min</span>}
                       </div>
@@ -271,7 +299,7 @@ export function PropertiesDialog({
           )}
 
           {/* Add property */}
-          {addingNew ? (
+          {allowCreate && addingNew ? (
             <form onSubmit={submitCreate} className="rounded-lg border border-dashed border-foreground/20 p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-foreground/40">Nueva propiedad</p>
               <input type="hidden" name="customerId" value={customerId} />
@@ -299,6 +327,30 @@ export function PropertiesDialog({
                 <label className="grid gap-1">
                   <span className={lbl}>Lot size (sqft)</span>
                   <input name="lotSizeSqFt" type="number" placeholder="5000" className={ic} />
+                </label>
+                <label className="grid gap-1">
+                  <span className={lbl}># Camas</span>
+                  <input name="flowerBedsCount" type="number" min="0" placeholder="4" className={ic} />
+                </label>
+                <label className="grid gap-1">
+                  <span className={lbl}># Arbustos</span>
+                  <input name="shrubsCount" type="number" min="0" placeholder="12" className={ic} />
+                </label>
+                <label className="grid gap-1">
+                  <span className={lbl}># Árboles</span>
+                  <input name="treesCount" type="number" min="0" placeholder="3" className={ic} />
+                </label>
+                <label className="grid gap-1">
+                  <span className={lbl}>Césped (sqft)</span>
+                  <input name="turfAreaSqFt" type="number" min="0" placeholder="1800" className={ic} />
+                </label>
+                <label className="grid gap-1">
+                  <span className={lbl}>Camas (sqft)</span>
+                  <input name="bedsAreaSqFt" type="number" min="0" placeholder="450" className={ic} />
+                </label>
+                <label className="grid gap-1">
+                  <span className={lbl}>Hardscape (sqft)</span>
+                  <input name="hardscapeAreaSqFt" type="number" min="0" placeholder="700" className={ic} />
                 </label>
                 <label className="grid gap-1 sm:col-span-2">
                   <span className={lbl}>Notas de acceso</span>
@@ -344,7 +396,7 @@ export function PropertiesDialog({
                 </div>
               </div>
             </form>
-          ) : (
+          ) : allowCreate ? (
             <button
               type="button"
               onClick={() => { setAddingNew(true); setEditingId(null); setDeletingId(null) }}
@@ -352,7 +404,7 @@ export function PropertiesDialog({
             >
               + Agregar propiedad
             </button>
-          )}
+          ) : null}
 
           {isPending && (
             <p className="text-xs text-foreground/40">Guardando…</p>

@@ -134,6 +134,12 @@ export default async function CustomerDetailPage({
         label: parseOptStr(formData.get("label")),
         accessNotes: parseOptStr(formData.get("accessNotes")),
         lotSizeSqFt: parseOptInt(formData.get("lotSizeSqFt")),
+        flowerBedsCount: parseOptInt(formData.get("flowerBedsCount")),
+        shrubsCount: parseOptInt(formData.get("shrubsCount")),
+        treesCount: parseOptInt(formData.get("treesCount")),
+        turfAreaSqFt: parseOptInt(formData.get("turfAreaSqFt")),
+        bedsAreaSqFt: parseOptInt(formData.get("bedsAreaSqFt")),
+        hardscapeAreaSqFt: parseOptInt(formData.get("hardscapeAreaSqFt")),
         yardFront: formData.get("yardFront") === "on",
         yardBack: formData.get("yardBack") === "on",
         yardSides: formData.get("yardSides") === "on",
@@ -162,6 +168,12 @@ export default async function CustomerDetailPage({
         label: parseOptStr(formData.get("label")),
         accessNotes: parseOptStr(formData.get("accessNotes")),
         lotSizeSqFt: parseOptInt(formData.get("lotSizeSqFt")),
+        flowerBedsCount: parseOptInt(formData.get("flowerBedsCount")),
+        shrubsCount: parseOptInt(formData.get("shrubsCount")),
+        treesCount: parseOptInt(formData.get("treesCount")),
+        turfAreaSqFt: parseOptInt(formData.get("turfAreaSqFt")),
+        bedsAreaSqFt: parseOptInt(formData.get("bedsAreaSqFt")),
+        hardscapeAreaSqFt: parseOptInt(formData.get("hardscapeAreaSqFt")),
         yardFront: formData.get("yardFront") === "on",
         yardBack: formData.get("yardBack") === "on",
         yardSides: formData.get("yardSides") === "on",
@@ -398,14 +410,23 @@ export default async function CustomerDetailPage({
                 : `${customer.properties.length} propiedad${customer.properties.length !== 1 ? "es" : ""}`}
             </p>
           </div>
-          <PropertiesDialog
-            customerName={`${customer.firstName} ${customer.lastName}`}
-            customerId={customer.id}
-            properties={customer.properties}
-            updatePropertyAction={updatePropertyAction}
-            deletePropertyAction={deletePropertyAction}
-            createPropertyAction={createPropertyAction}
-          />
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/dashboard/clientes/${customer.id}/propiedades/nueva`}
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90"
+            >
+              + Nueva propiedad
+            </Link>
+            <PropertiesDialog
+              customerName={`${customer.firstName} ${customer.lastName}`}
+              customerId={customer.id}
+              properties={customer.properties}
+              updatePropertyAction={updatePropertyAction}
+              deletePropertyAction={deletePropertyAction}
+              createPropertyAction={createPropertyAction}
+              allowCreate={false}
+            />
+          </div>
         </div>
 
         {customer.properties.length > 0 && (
@@ -425,6 +446,36 @@ export default async function CustomerDetailPage({
                   <p className="mt-0.5 text-xs text-foreground/45">{p.zipCode}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                  {p.flowerBedsCount && (
+                    <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
+                      Camas: {p.flowerBedsCount}
+                    </span>
+                  )}
+                  {p.shrubsCount && (
+                    <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
+                      Arbustos: {p.shrubsCount}
+                    </span>
+                  )}
+                  {p.treesCount && (
+                    <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
+                      Árboles: {p.treesCount}
+                    </span>
+                  )}
+                  {p.turfAreaSqFt && (
+                    <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
+                      Césped: {p.turfAreaSqFt.toLocaleString()} sqft
+                    </span>
+                  )}
+                  {p.bedsAreaSqFt && (
+                    <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
+                      Camas sqft: {p.bedsAreaSqFt.toLocaleString()}
+                    </span>
+                  )}
+                  {p.hardscapeAreaSqFt && (
+                    <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
+                      Hardscape sqft: {p.hardscapeAreaSqFt.toLocaleString()}
+                    </span>
+                  )}
                   {p.yardFront && (
                     <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
                       Frente
