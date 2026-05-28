@@ -8,10 +8,17 @@ function isAuthSubdomain(host: string): boolean {
 
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? ""
-  const { pathname } = request.nextUrl
+  const { pathname, search } = request.nextUrl
+  const inAuthHost = isAuthSubdomain(host)
+  const isAdminPath = pathname === "/auth" || pathname.startsWith("/auth/") || pathname === "/dashboard" || pathname.startsWith("/dashboard/")
+
+  // Force admin routes to auth subdomain only.
+  if (!inAuthHost && isAdminPath) {
+    return NextResponse.redirect(`https://auth.rootlinenj.com${pathname}${search}`)
+  }
 
   // Keep URL as https://auth.rootlinenj.com/ while rendering /auth.
-  if (isAuthSubdomain(host) && pathname === "/") {
+  if (inAuthHost && pathname === "/") {
     const rewriteUrl = request.nextUrl.clone()
     rewriteUrl.pathname = "/auth"
     return NextResponse.rewrite(rewriteUrl)

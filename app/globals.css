@@ -59,6 +59,19 @@ body {
   color: var(--ink);
 }
 
+/* iOS/PWA: prevent automatic zoom when focusing inputs. */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (max-width: 1024px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 .hero-mesh {
   background:
     radial-gradient(ellipse 80% 55% at 20% -10%, rgb(108 140 74 / 0.35), transparent),
