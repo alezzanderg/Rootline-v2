@@ -26,6 +26,12 @@ enum QuoteStatus {
   REJECTED
 }
 
+enum QuoteServiceFrequency {
+  ONE_TIME
+  WEEKLY
+  BIWEEKLY
+}
+
 enum JobStatus {
   SCHEDULED
   IN_PROGRESS
@@ -207,10 +213,11 @@ model CustomerMembership {
 }
 
 model Quote {
-  id          String      @id @default(uuid())
-  customerId  String
-  propertyId  String?
-  status      QuoteStatus @default(DRAFT)
+  id                String                 @id @default(uuid())
+  customerId        String
+  propertyId        String?
+  serviceFrequency  QuoteServiceFrequency? @default(ONE_TIME)
+  status            QuoteStatus            @default(DRAFT)
   subtotal    Decimal     @default(0) @db.Decimal(10, 2)
   tax         Decimal     @default(0) @db.Decimal(10, 2)
   total       Decimal     @default(0) @db.Decimal(10, 2)

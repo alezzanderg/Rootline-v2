@@ -2,8 +2,12 @@ import { PrismaPg } from "@prisma/adapter-pg"
 
 import { PrismaClient } from "@/lib/generated/prisma/client"
 
+/** Bump when Prisma schema changes so dev HMR does not keep a stale client. */
+const PRISMA_SCHEMA_VERSION = "quote-service-frequency-v1"
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient
+  prismaSchemaVersion?: string
 }
 
 function normalizeSslMode(urlString: string): string {
@@ -39,12 +43,16 @@ function createPrismaClient(): PrismaClient {
 }
 
 function getPrismaClient(): PrismaClient {
-  if (globalForPrisma.prisma) return globalForPrisma.prisma
+  const cached =
+    globalForPrisma.prismaSchemaVersion === PRISMA_SCHEMA_VERSION
+      ? globalForPrisma.prisma
+      : undefined
+
+  if (cached) return cached
 
   const client = createPrismaClient()
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client
-  }
+  globalForPrisma.prisma = client
+  globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION
   return client
 }
 

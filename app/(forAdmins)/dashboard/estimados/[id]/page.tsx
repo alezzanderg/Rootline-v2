@@ -2,8 +2,10 @@ import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
+import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
 import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
 import { prisma } from "@/lib/prisma"
+import { QUOTE_FREQUENCY_LABEL, SERVICE_CATEGORY_LABEL } from "@/lib/quote-labels"
 
 type Props = {
   params: Promise<{ id: string }>
@@ -39,6 +41,21 @@ export default async function EstimadoDetailPage({ params }: Props) {
         notes: parseOptStr(formData.get("notes")),
         validUntil: validUntilRaw ? new Date(validUntilRaw) : null,
       },
+    })
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function updateFrequencyAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const raw = parseStr(formData.get("serviceFrequency"))
+    const serviceFrequency =
+      raw === "WEEKLY" || raw === "BIWEEKLY" || raw === "ONE_TIME" ? raw : "ONE_TIME"
+    if (!quoteId) return
+    await prisma.quote.update({
+      where: { id: quoteId },
+      data: { serviceFrequency },
     })
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
@@ -120,14 +137,21 @@ export default async function EstimadoDetailPage({ params }: Props) {
         customer: { select: { firstName: true, lastName: true } },
         property: { select: { street: true, city: true } },
         items: {
-          include: { service: { select: { id: true, name: true } } },
+          include: { service: { select: { id: true, name: true, category: true } } },
           orderBy: { id: "asc" },
         },
       },
     }),
     prisma.serviceCatalog.findMany({
       where: { active: true },
-      select: { id: true, name: true, defaultPrice: true, startingAtPrice: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        defaultPrice: true,
+        startingAtPrice: true,
+        pricingUnit: true,
+      },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
     getTaxRatePercent(),
@@ -151,6 +175,19 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   const customerName = `${quote.customer.firstName} ${quote.customer.lastName}`
   const propertyAddress = quote.property ? `${quote.property.street}, ${quote.property.city}` : "Sin propiedad"
+  const frequency = quote.serviceFrequency ?? "ONE_TIME"
+
+  const toServiceOption = (s: (typeof services)[number]): EstimadoServiceOption => ({
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    defaultPrice: s.defaultPrice != null ? Number(s.defaultPrice) : null,
+    startingAtPrice: s.startingAtPrice != null ? Number(s.startingAtPrice) : null,
+    pricingUnit: s.pricingUnit,
+  })
+
+  const coreServices = services.filter((s) => s.category !== "ADD_ON").map(toServiceOption)
+  const addonServices = services.filter((s) => s.category === "ADD_ON").map(toServiceOption)
 
   return (
     <section className="mx-auto max-w-4xl text-foreground">
@@ -165,7 +202,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
           <div>
             <h1 className="font-(family-name:--font-display-family) text-2xl font-semibold">{customerName}</h1>
             <p className="text-sm text-foreground/55">{propertyAddress}</p>
-            <p className="mt-1 font-mono text-xs text-foreground/45">#{quote.id.slice(0, 8)}</p>
+            <p className="mt-1 text-xs text-foreground/50">
+              Frecuencia:{" "}
+              <span className="font-semibold text-foreground/70">
+                {QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}
+              </span>
+            </p>
+            <p className="mt-0.5 font-mono text-xs text-foreground/45">#{quote.id.slice(0, 8)}</p>
           </div>
           <div className="flex items-start gap-2">
             <div className="text-right">
@@ -249,38 +292,14 @@ export default async function EstimadoDetailPage({ params }: Props) {
           </div>
         </form>
 
-        <form action={addItemAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-          <input type="hidden" name="quoteId" value={quote.id} />
-          <p className="mb-3 text-sm font-semibold text-foreground/80">Agregar servicio</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 sm:col-span-2">
-              <span className={lbl}>Servicio</span>
-              <select name="serviceId" required className={ic}>
-                <option value="">Selecciona un servicio</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1">
-              <span className={lbl}>Cantidad</span>
-              <input name="quantity" type="number" min="0.1" step="0.1" defaultValue="1" className={ic} />
-            </label>
-            <label className="grid gap-1">
-              <span className={lbl}>Precio unitario</span>
-              <input name="unitPrice" type="number" min="0" step="0.01" required className={ic} />
-            </label>
-            <label className="grid gap-1 sm:col-span-2">
-              <span className={lbl}>Descripcion</span>
-              <input name="description" className={ic} />
-            </label>
-            <button type="submit" className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground sm:col-span-2">
-              Agregar linea
-            </button>
-          </div>
-        </form>
+        <EstimadoQuoteServices
+          quoteId={quote.id}
+          initialFrequency={frequency}
+          coreServices={coreServices}
+          addonServices={addonServices}
+          updateFrequencyAction={updateFrequencyAction}
+          addItemAction={addItemAction}
+        />
 
         <div className="rounded-2xl border border-foreground/12 bg-background">
           <div className="border-b border-foreground/10 px-4 py-3 text-sm font-semibold">Lineas del estimado</div>
@@ -291,7 +310,18 @@ export default async function EstimadoDetailPage({ params }: Props) {
               {quote.items.map((item) => (
                 <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{item.service.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-medium">{item.service.name}</p>
+                      <span
+                        className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
+                          item.service.category === "ADD_ON"
+                            ? "border-violet-300/40 bg-violet-50/80 text-violet-700"
+                            : "border-foreground/15 bg-foreground/5 text-foreground/55"
+                        }`}
+                      >
+                        {SERVICE_CATEGORY_LABEL[item.service.category] ?? item.service.category}
+                      </span>
+                    </div>
                     <p className="text-xs text-foreground/50">
                       {Number(item.quantity)} x ${Number(item.unitPrice).toFixed(2)}
                     </p>
