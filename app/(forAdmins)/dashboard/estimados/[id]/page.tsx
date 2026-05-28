@@ -1,0 +1,308 @@
+import { revalidatePath } from "next/cache"
+import Link from "next/link"
+import { notFound, redirect } from "next/navigation"
+
+import { prisma } from "@/lib/prisma"
+
+type Props = {
+  params: Promise<{ id: string }>
+}
+
+function parseStr(v: FormDataEntryValue | null): string {
+  return typeof v === "string" ? v.trim() : ""
+}
+
+function parseOptStr(v: FormDataEntryValue | null): string | null {
+  if (typeof v !== "string") return null
+  const s = v.trim()
+  return s || null
+}
+
+function parseOptFloat(v: FormDataEntryValue | null): number | null {
+  if (typeof v !== "string") return null
+  const n = parseFloat(v.trim())
+  return Number.isFinite(n) ? n : null
+}
+
+export default async function EstimadoDetailPage({ params }: Props) {
+  const { id } = await params
+
+  async function updateQuoteAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("id"))
+    if (!quoteId) return
+    const validUntilRaw = parseOptStr(formData.get("validUntil"))
+    await prisma.quote.update({
+      where: { id: quoteId },
+      data: {
+        notes: parseOptStr(formData.get("notes")),
+        validUntil: validUntilRaw ? new Date(validUntilRaw) : null,
+      },
+    })
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function addItemAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const serviceId = parseStr(formData.get("serviceId"))
+    const quantity = parseOptFloat(formData.get("quantity")) ?? 1
+    const unitPrice = parseOptFloat(formData.get("unitPrice"))
+    if (!quoteId || !serviceId || unitPrice === null) return
+
+    await prisma.quoteItem.create({
+      data: {
+        quoteId,
+        serviceId,
+        quantity,
+        unitPrice,
+        lineTotal: quantity * unitPrice,
+        description: parseOptStr(formData.get("description")),
+      },
+    })
+
+    const items = await prisma.quoteItem.findMany({ where: { quoteId } })
+    const subtotal = items.reduce((acc, item) => acc + Number(item.lineTotal), 0)
+    await prisma.quote.update({ where: { id: quoteId }, data: { subtotal, total: subtotal } })
+
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function removeItemAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const itemId = parseStr(formData.get("itemId"))
+    if (!quoteId || !itemId) return
+
+    await prisma.quoteItem.delete({ where: { id: itemId } })
+    const items = await prisma.quoteItem.findMany({ where: { quoteId } })
+    const subtotal = items.reduce((acc, item) => acc + Number(item.lineTotal), 0)
+    await prisma.quote.update({ where: { id: quoteId }, data: { subtotal, total: subtotal } })
+
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function changeStatusAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const status = parseStr(formData.get("status"))
+    if (!quoteId || !["SENT", "APPROVED", "REJECTED", "DRAFT"].includes(status)) return
+
+    const now = new Date()
+    await prisma.quote.update({
+      where: { id: quoteId },
+      data: {
+        status: status as "DRAFT" | "SENT" | "APPROVED" | "REJECTED",
+        sentAt: status === "SENT" ? now : null,
+        approvedAt: status === "APPROVED" ? now : null,
+        rejectedAt: status === "REJECTED" ? now : null,
+      },
+    })
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+    if (status === "APPROVED") revalidatePath("/dashboard/scheduling")
+  }
+
+  async function deleteQuoteAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("id"))
+    const confirm = formData.get("confirmDelete") === "on"
+    if (!quoteId || !confirm) return
+    await prisma.quote.delete({ where: { id: quoteId } })
+    revalidatePath("/dashboard/estimados")
+    redirect("/dashboard/estimados")
+  }
+
+  const [quote, services] = await Promise.all([
+    prisma.quote.findUnique({
+      where: { id },
+      include: {
+        customer: { select: { firstName: true, lastName: true } },
+        property: { select: { street: true, city: true } },
+        items: {
+          include: { service: { select: { id: true, name: true } } },
+          orderBy: { id: "asc" },
+        },
+      },
+    }),
+    prisma.serviceCatalog.findMany({
+      where: { active: true },
+      select: { id: true, name: true, defaultPrice: true, startingAtPrice: true },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+  ])
+
+  if (!quote) notFound()
+
+  const statusLabel = (s: string) =>
+    ({ DRAFT: "Borrador", SENT: "Enviado", APPROVED: "Aprobado", REJECTED: "Rechazado" }[s] ?? s)
+  const statusBadge = (s: string) =>
+    ({
+      DRAFT: "border-foreground/20 bg-foreground/8 text-foreground/60",
+      SENT: "border-blue-400/40 bg-blue-50 text-blue-700",
+      APPROVED: "border-emerald-500/40 bg-emerald-50 text-emerald-700",
+      REJECTED: "border-rose-400/40 bg-rose-50 text-rose-600",
+    }[s] ?? "border-foreground/20 bg-foreground/8 text-foreground/60")
+
+  const ic =
+    "rounded-xl border border-foreground/20 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-accent"
+  const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
+
+  const customerName = `${quote.customer.firstName} ${quote.customer.lastName}`
+  const propertyAddress = quote.property ? `${quote.property.street}, ${quote.property.city}` : "Sin propiedad"
+
+  return (
+    <section className="mx-auto max-w-4xl text-foreground">
+      <div className="mb-4">
+        <Link href="/dashboard/estimados" className="text-sm text-foreground/55 hover:text-foreground">
+          ← Volver a estimados
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-foreground/12 bg-background p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-(family-name:--font-display-family) text-2xl font-semibold">{customerName}</h1>
+            <p className="text-sm text-foreground/55">{propertyAddress}</p>
+            <p className="mt-1 font-mono text-xs text-foreground/45">#{quote.id.slice(0, 8)}</p>
+          </div>
+          <div className="text-right">
+            <span
+              className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}
+            >
+              {statusLabel(quote.status)}
+            </span>
+            <p className="mt-2 text-lg font-semibold tabular-nums">${Number(quote.total).toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+          <input type="hidden" name="id" value={quote.id} />
+          <p className="mb-3 text-sm font-semibold text-foreground/80">Detalles</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1">
+              <span className={lbl}>Valido hasta</span>
+              <input
+                name="validUntil"
+                type="date"
+                defaultValue={quote.validUntil ? quote.validUntil.toISOString().slice(0, 10) : ""}
+                className={ic}
+              />
+            </label>
+            <label className="grid gap-1 sm:col-span-2">
+              <span className={lbl}>Notas</span>
+              <textarea
+                name="notes"
+                defaultValue={quote.notes ?? ""}
+                rows={3}
+                className={`${ic} resize-none`}
+              />
+            </label>
+            <button type="submit" className="rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background sm:col-span-2">
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+
+        <form action={addItemAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+          <input type="hidden" name="quoteId" value={quote.id} />
+          <p className="mb-3 text-sm font-semibold text-foreground/80">Agregar servicio</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1 sm:col-span-2">
+              <span className={lbl}>Servicio</span>
+              <select name="serviceId" required className={ic}>
+                <option value="">Selecciona un servicio</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              <span className={lbl}>Cantidad</span>
+              <input name="quantity" type="number" min="0.1" step="0.1" defaultValue="1" className={ic} />
+            </label>
+            <label className="grid gap-1">
+              <span className={lbl}>Precio unitario</span>
+              <input name="unitPrice" type="number" min="0" step="0.01" required className={ic} />
+            </label>
+            <label className="grid gap-1 sm:col-span-2">
+              <span className={lbl}>Descripcion</span>
+              <input name="description" className={ic} />
+            </label>
+            <button type="submit" className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground sm:col-span-2">
+              Agregar linea
+            </button>
+          </div>
+        </form>
+
+        <div className="rounded-2xl border border-foreground/12 bg-background">
+          <div className="border-b border-foreground/10 px-4 py-3 text-sm font-semibold">Lineas del estimado</div>
+          {quote.items.length === 0 ? (
+            <p className="px-4 py-8 text-sm text-foreground/45">Aun no tiene lineas.</p>
+          ) : (
+            <ul className="divide-y divide-foreground/8">
+              {quote.items.map((item) => (
+                <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{item.service.name}</p>
+                    <p className="text-xs text-foreground/50">
+                      {Number(item.quantity)} x ${Number(item.unitPrice).toFixed(2)}
+                    </p>
+                    {item.description ? <p className="mt-1 text-xs text-foreground/45">{item.description}</p> : null}
+                  </div>
+                  <div className="text-right">
+                    <p className="tabular-nums text-sm font-semibold">${Number(item.lineTotal).toFixed(2)}</p>
+                    <form action={removeItemAction} className="mt-1">
+                      <input type="hidden" name="quoteId" value={quote.id} />
+                      <input type="hidden" name="itemId" value={item.id} />
+                      <button type="submit" className="text-xs text-rose-600 hover:underline">
+                        Quitar
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+          <p className="mb-3 text-sm font-semibold text-foreground/80">Estado</p>
+          <div className="flex flex-wrap gap-2">
+            {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
+              <form key={s} action={changeStatusAction}>
+                <input type="hidden" name="quoteId" value={quote.id} />
+                <input type="hidden" name="status" value={s} />
+                <button
+                  type="submit"
+                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
+                    quote.status === s ? "border-accent/60 bg-accent/20 text-accent" : "border-foreground/20 text-foreground/70"
+                  }`}
+                >
+                  {statusLabel(s)}
+                </button>
+              </form>
+            ))}
+          </div>
+        </div>
+
+        <form action={deleteQuoteAction} className="rounded-2xl border border-rose-300/40 bg-rose-50/40 p-4">
+          <input type="hidden" name="id" value={quote.id} />
+          <label className="mb-3 flex items-center gap-2 text-sm text-rose-700">
+            <input type="checkbox" name="confirmDelete" /> Confirmar eliminacion
+          </label>
+          <button type="submit" className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white">
+            Eliminar estimado
+          </button>
+        </form>
+      </div>
+    </section>
+  )
+}

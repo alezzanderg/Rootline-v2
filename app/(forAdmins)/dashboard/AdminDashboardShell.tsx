@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Menu,
   Package,
+  PanelLeft,
   Users,
   Wrench,
   X,
@@ -262,6 +263,16 @@ export default function AdminDashboardShell({
           })}
         </div>
       </nav>
+
+      <button
+        type="button"
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="fixed bottom-[calc(4.7rem+env(safe-area-inset-bottom))] right-3 z-40 inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#1f1f1f]/95 px-3 py-2 text-xs font-semibold text-[#E7E2D6] shadow-lg backdrop-blur transition hover:bg-[#2b2b2b] lg:hidden"
+        aria-label="Open sections sidebar"
+      >
+        <PanelLeft className="h-3.5 w-3.5" />
+        Secciones
+      </button>
     </div>
   )
 }
