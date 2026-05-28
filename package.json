@@ -10,7 +10,8 @@
     "lint": "eslint",
     "seed": "prisma db seed",
     "favicons": "tsx scripts/generate-favicons.ts",
-    "optimize-images": "tsx scripts/optimize-marketing-images.ts"
+    "optimize-images": "tsx scripts/optimize-marketing-images.ts",
+    "reset-admin-password": "tsx scripts/reset-admin-password.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
