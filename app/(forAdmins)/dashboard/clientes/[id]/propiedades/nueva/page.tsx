@@ -2,6 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { PropertyMetricsStepper } from "@/components/ui/PropertyMetricsStepper"
+import { parseOptInt, parseOptPositiveInt } from "@/lib/form-parse"
 import { prisma } from "@/lib/prisma"
 
 function parseStr(v: FormDataEntryValue | null) {
@@ -12,12 +13,6 @@ function parseOptStr(v: FormDataEntryValue | null): string | null {
   if (typeof v !== "string") return null
   const s = v.trim()
   return s || null
-}
-
-function parseOptInt(v: FormDataEntryValue | null): number | null {
-  if (typeof v !== "string") return null
-  const n = parseInt(v.trim(), 10)
-  return Number.isFinite(n) ? n : null
 }
 
 function parseDifficulty(v: FormDataEntryValue | null): "EASY" | "MEDIUM" | "HARD" | null {
@@ -58,13 +53,13 @@ export default async function NuevaPropiedadPage({ params }: Props) {
         state: parseStr(formData.get("state")) || "NJ",
         label: parseOptStr(formData.get("label")),
         accessNotes: parseOptStr(formData.get("accessNotes")),
-        lotSizeSqFt: parseOptInt(formData.get("lotSizeSqFt")),
-        flowerBedsCount: parseOptInt(formData.get("flowerBedsCount")),
-        shrubsCount: parseOptInt(formData.get("shrubsCount")),
-        treesCount: parseOptInt(formData.get("treesCount")),
-        turfAreaSqFt: parseOptInt(formData.get("turfAreaSqFt")),
-        bedsAreaSqFt: parseOptInt(formData.get("bedsAreaSqFt")),
-        hardscapeAreaSqFt: parseOptInt(formData.get("hardscapeAreaSqFt")),
+        lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
+        flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
+        shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
+        treesCount: parseOptPositiveInt(formData.get("treesCount")),
+        turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
+        bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
+        hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
         yardFront: formData.get("yardFront") === "on",
         yardBack: formData.get("yardBack") === "on",
         yardSides: formData.get("yardSides") === "on",

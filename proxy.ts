@@ -6,18 +6,34 @@ function isAuthSubdomain(host: string): boolean {
   return normalized === "auth.rootlinenj.com" || normalized.startsWith("auth.rootlinenj.com:")
 }
 
+/** Local dev: keep admin at http://localhost:3000/auth and /dashboard (no redirect to production). */
+function isLocalDevHost(host: string): boolean {
+  const hostname = host.toLowerCase().split(":")[0]
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".local")
+  )
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? ""
   const { pathname, search } = request.nextUrl
   const inAuthHost = isAuthSubdomain(host)
-  const isAdminPath = pathname === "/auth" || pathname.startsWith("/auth/") || pathname === "/dashboard" || pathname.startsWith("/dashboard/")
+  const inLocalDev = isLocalDevHost(host)
+  const isAdminPath =
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/")
 
-  // Force admin routes to auth subdomain only.
-  if (!inAuthHost && isAdminPath) {
+  // Production: admin only on auth.rootlinenj.com (not www).
+  if (!inAuthHost && !inLocalDev && isAdminPath) {
     return NextResponse.redirect(`https://auth.rootlinenj.com${pathname}${search}`)
   }
 
-  // Keep URL as https://auth.rootlinenj.com/ while rendering /auth.
+  // Production auth host: / shows login at /auth (URL stays /).
   if (inAuthHost && pathname === "/") {
     const rewriteUrl = request.nextUrl.clone()
     rewriteUrl.pathname = "/auth"

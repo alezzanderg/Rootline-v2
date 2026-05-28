@@ -247,15 +247,15 @@ export function PropertiesDialog({
                         {property.street}, {property.city}, {property.state} {property.zipCode}
                       </p>
                       <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-foreground/40">
-                        {property.lotSizeSqFt && <span>{property.lotSizeSqFt.toLocaleString()} sqft</span>}
-                        {property.flowerBedsCount !== null && <span>{property.flowerBedsCount} camas</span>}
-                        {property.shrubsCount !== null && <span>{property.shrubsCount} arbustos</span>}
-                        {property.treesCount !== null && <span>{property.treesCount} árboles</span>}
-                        {property.turfAreaSqFt !== null && <span>césped {property.turfAreaSqFt.toLocaleString()} sqft</span>}
-                        {property.bedsAreaSqFt !== null && <span>camas {property.bedsAreaSqFt.toLocaleString()} sqft</span>}
-                        {property.hardscapeAreaSqFt !== null && <span>hardscape {property.hardscapeAreaSqFt.toLocaleString()} sqft</span>}
+                        {(property.lotSizeSqFt ?? 0) > 0 && <span>{property.lotSizeSqFt!.toLocaleString()} sqft</span>}
+                        {(property.flowerBedsCount ?? 0) > 0 && <span>{property.flowerBedsCount} camas</span>}
+                        {(property.shrubsCount ?? 0) > 0 && <span>{property.shrubsCount} arbustos</span>}
+                        {(property.treesCount ?? 0) > 0 && <span>{property.treesCount} árboles</span>}
+                        {(property.turfAreaSqFt ?? 0) > 0 && <span>césped {property.turfAreaSqFt!.toLocaleString()} sqft</span>}
+                        {(property.bedsAreaSqFt ?? 0) > 0 && <span>camas {property.bedsAreaSqFt!.toLocaleString()} sqft</span>}
+                        {(property.hardscapeAreaSqFt ?? 0) > 0 && <span>hardscape {property.hardscapeAreaSqFt!.toLocaleString()} sqft</span>}
                         {property.accessNotes && <span>{property.accessNotes}</span>}
-                        {property.estimatedDurationMin && <span>~{property.estimatedDurationMin} min</span>}
+                        {(property.estimatedDurationMin ?? 0) > 0 && <span>~{property.estimatedDurationMin} min</span>}
                       </div>
                       {(property.yardFront || property.yardBack || property.yardSides || property.jobDifficulty) && (
                         <div className="mt-1.5 flex flex-wrap gap-1">

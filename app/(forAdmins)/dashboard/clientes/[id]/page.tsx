@@ -8,6 +8,7 @@ import { PropertiesDialog } from "@/components/ui/PropertiesDialog"
 import { CustomerActionsMenu } from "@/components/ui/CustomerActionsMenu"
 import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
 import { parsePhoneRequired } from "@/lib/phone-format"
+import { parseOptPositiveInt } from "@/lib/form-parse"
 
 // ── helpers ────────────────────────────────────────────────────
 function parseStr(v: FormDataEntryValue | null) {
@@ -133,13 +134,13 @@ export default async function CustomerDetailPage({
         state: parseStr(formData.get("state")) || "NJ",
         label: parseOptStr(formData.get("label")),
         accessNotes: parseOptStr(formData.get("accessNotes")),
-        lotSizeSqFt: parseOptInt(formData.get("lotSizeSqFt")),
-        flowerBedsCount: parseOptInt(formData.get("flowerBedsCount")),
-        shrubsCount: parseOptInt(formData.get("shrubsCount")),
-        treesCount: parseOptInt(formData.get("treesCount")),
-        turfAreaSqFt: parseOptInt(formData.get("turfAreaSqFt")),
-        bedsAreaSqFt: parseOptInt(formData.get("bedsAreaSqFt")),
-        hardscapeAreaSqFt: parseOptInt(formData.get("hardscapeAreaSqFt")),
+        lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
+        flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
+        shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
+        treesCount: parseOptPositiveInt(formData.get("treesCount")),
+        turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
+        bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
+        hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
         yardFront: formData.get("yardFront") === "on",
         yardBack: formData.get("yardBack") === "on",
         yardSides: formData.get("yardSides") === "on",
@@ -167,13 +168,13 @@ export default async function CustomerDetailPage({
         state: parseStr(formData.get("state")) || "NJ",
         label: parseOptStr(formData.get("label")),
         accessNotes: parseOptStr(formData.get("accessNotes")),
-        lotSizeSqFt: parseOptInt(formData.get("lotSizeSqFt")),
-        flowerBedsCount: parseOptInt(formData.get("flowerBedsCount")),
-        shrubsCount: parseOptInt(formData.get("shrubsCount")),
-        treesCount: parseOptInt(formData.get("treesCount")),
-        turfAreaSqFt: parseOptInt(formData.get("turfAreaSqFt")),
-        bedsAreaSqFt: parseOptInt(formData.get("bedsAreaSqFt")),
-        hardscapeAreaSqFt: parseOptInt(formData.get("hardscapeAreaSqFt")),
+        lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
+        flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
+        shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
+        treesCount: parseOptPositiveInt(formData.get("treesCount")),
+        turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
+        bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
+        hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
         yardFront: formData.get("yardFront") === "on",
         yardBack: formData.get("yardBack") === "on",
         yardSides: formData.get("yardSides") === "on",
@@ -446,51 +447,51 @@ export default async function CustomerDetailPage({
                   <p className="mt-0.5 text-xs text-foreground/45">{p.zipCode}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                  {p.flowerBedsCount && (
+                  {(p.flowerBedsCount ?? 0) > 0 ? (
                     <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
                       Camas: {p.flowerBedsCount}
                     </span>
-                  )}
-                  {p.shrubsCount && (
+                  ) : null}
+                  {(p.shrubsCount ?? 0) > 0 ? (
                     <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
                       Arbustos: {p.shrubsCount}
                     </span>
-                  )}
-                  {p.treesCount && (
+                  ) : null}
+                  {(p.treesCount ?? 0) > 0 ? (
                     <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
                       Árboles: {p.treesCount}
                     </span>
-                  )}
-                  {p.turfAreaSqFt && (
+                  ) : null}
+                  {(p.turfAreaSqFt ?? 0) > 0 ? (
                     <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
-                      Césped: {p.turfAreaSqFt.toLocaleString()} sqft
+                      Césped: {p.turfAreaSqFt!.toLocaleString()} sqft
                     </span>
-                  )}
-                  {p.bedsAreaSqFt && (
+                  ) : null}
+                  {(p.bedsAreaSqFt ?? 0) > 0 ? (
                     <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
-                      Camas sqft: {p.bedsAreaSqFt.toLocaleString()}
+                      Camas sqft: {p.bedsAreaSqFt!.toLocaleString()} sqft
                     </span>
-                  )}
-                  {p.hardscapeAreaSqFt && (
+                  ) : null}
+                  {(p.hardscapeAreaSqFt ?? 0) > 0 ? (
                     <span className="rounded border border-foreground/15 bg-foreground/3 px-1.5 py-0.5 font-semibold text-foreground/60">
-                      Hardscape sqft: {p.hardscapeAreaSqFt.toLocaleString()}
+                      Hardscape: {p.hardscapeAreaSqFt!.toLocaleString()} sqft
                     </span>
-                  )}
-                  {p.yardFront && (
+                  ) : null}
+                  {p.yardFront ? (
                     <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
                       Frente
                     </span>
-                  )}
-                  {p.yardBack && (
+                  ) : null}
+                  {p.yardBack ? (
                     <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
                       Patio
                     </span>
-                  )}
-                  {p.yardSides && (
+                  ) : null}
+                  {p.yardSides ? (
                     <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
                       Laterales
                     </span>
-                  )}
+                  ) : null}
                   {p.jobDifficulty && (
                     <span
                       className={`rounded border px-1.5 py-0.5 font-bold uppercase tracking-wide ${
@@ -504,7 +505,7 @@ export default async function CustomerDetailPage({
                       {DIFFICULTY_LABEL[p.jobDifficulty]}
                     </span>
                   )}
-                  {p.estimatedDurationMin && (
+                  {(p.estimatedDurationMin ?? 0) > 0 && (
                     <span className="text-foreground/45">~{p.estimatedDurationMin} min</span>
                   )}
                 </div>
