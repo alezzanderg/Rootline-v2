@@ -196,55 +196,62 @@ export function EstimadoQuoteServices({
 
   return (
     <div className="space-y-4">
+      {/* Frequency + tier selectors in one card */}
       <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-        <p className="text-sm font-semibold text-foreground/80">Frecuencia del servicio</p>
-        <p className="mt-1 text-xs text-foreground/45">
-          Semanal o quincenal habilita complementos. Una vez usa precios más altos del catálogo.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(
-            [
-              ["ONE_TIME", "Una vez"],
-              ["WEEKLY", "Semanal"],
-              ["BIWEEKLY", "Quincenal"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              disabled={freqPending}
-              onClick={() => onFrequencyChange(value)}
-              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
-                frequency === value
-                  ? "border-accent/60 bg-accent/20 text-accent"
-                  : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <p className="text-sm font-semibold text-foreground/80">Frecuencia</p>
+            <p className="mt-1 text-xs text-foreground/45">
+              Semanal o quincenal habilita complementos.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(
+                [
+                  ["ONE_TIME", "Una vez"],
+                  ["WEEKLY", "Semanal"],
+                  ["BIWEEKLY", "Quincenal"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={freqPending}
+                  onClick={() => onFrequencyChange(value)}
+                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+                    frequency === value
+                      ? "border-accent/60 bg-accent/20 text-accent"
+                      : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-        <p className="text-sm font-semibold text-foreground/80">Tamaño del yard</p>
-        <p className="mt-1 text-xs text-foreground/45">Define Small / Medium / Large para el precio por visita.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(["SMALL", "MEDIUM", "LARGE"] as const).map((tier) => (
-            <button
-              key={tier}
-              type="button"
-              disabled={tierPending}
-              onClick={() => onPlanTierChange(tier)}
-              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
-                planTier === tier
-                  ? "border-accent/60 bg-accent/20 text-accent"
-                  : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
-              }`}
-            >
-              {PLAN_TIER_LABEL[tier]}
-            </button>
-          ))}
+          <div className="sm:border-l sm:border-foreground/10 sm:pl-5">
+            <p className="text-sm font-semibold text-foreground/80">Tamaño del yard</p>
+            <p className="mt-1 text-xs text-foreground/45">
+              Define precios Small / Medium / Large.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(["SMALL", "MEDIUM", "LARGE"] as const).map((tier) => (
+                <button
+                  key={tier}
+                  type="button"
+                  disabled={tierPending}
+                  onClick={() => onPlanTierChange(tier)}
+                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+                    planTier === tier
+                      ? "border-accent/60 bg-accent/20 text-accent"
+                      : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
+                  }`}
+                >
+                  {PLAN_TIER_LABEL[tier]}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -33,9 +33,16 @@ export default async function AdminDashboardLayout({
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("")
 
-  const newInquiryCount = await prisma.serviceInquiry.count({
-    where: { status: "NEW" },
-  })
+  const [newInquiryCount, rawInquiries] = await Promise.all([
+    prisma.serviceInquiry.count({ where: { status: "NEW" } }),
+    prisma.serviceInquiry.findMany({
+      where: { status: "NEW" },
+      take: 6,
+      orderBy: { createdAt: "desc" },
+      select: { id: true, firstName: true, lastName: true, subject: true, createdAt: true },
+    }),
+  ])
+  const recentInquiries = rawInquiries.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() }))
 
   async function signOutAction() {
     "use server"
@@ -50,6 +57,7 @@ export default async function AdminDashboardLayout({
       initials={initials}
       email={sessionUser.email}
       newInquiryCount={newInquiryCount}
+      recentInquiries={recentInquiries}
       signOutAction={signOutAction}
     >
       {children}

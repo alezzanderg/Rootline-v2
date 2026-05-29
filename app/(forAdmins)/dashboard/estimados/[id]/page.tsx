@@ -226,37 +226,39 @@ export default async function EstimadoDetailPage({ params }: Props) {
   const addonServices = services.filter((s) => s.category === "ADD_ON").map(toServiceOption)
 
   return (
-    <section className="mx-auto max-w-4xl text-foreground">
+    <section className="mx-auto max-w-5xl text-foreground">
       <div className="mb-4">
         <Link href="/dashboard/estimados" className="text-sm text-foreground/55 hover:text-foreground">
           ← Volver a estimados
         </Link>
       </div>
 
+      {/* Header */}
       <div className="rounded-2xl border border-foreground/12 bg-background p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold">{customerName}</h1>
             <p className="text-sm text-foreground/55">{propertyAddress}</p>
-            <p className="mt-1 text-xs text-foreground/50">
-              Frecuencia:{" "}
-              <span className="font-semibold text-foreground/70">
-                {QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-xs text-foreground/50">
+                <span className="font-semibold text-foreground/70">{QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}</span>
+                {" · "}
+                <span className="font-semibold text-foreground/70">{PLAN_TIER_LABEL[planTier]}</span>
               </span>
-              {" · "}
-              Yard:{" "}
-              <span className="font-semibold text-foreground/70">{PLAN_TIER_LABEL[planTier]}</span>
-            </p>
-            <p className="mt-0.5 font-mono text-xs text-foreground/45">#{quote.id.slice(0, 8)}</p>
+              <span className="font-mono text-xs text-foreground/35">#{quote.id.slice(0, 8)}</span>
+            </div>
           </div>
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-3">
             <div className="text-right">
               <span
                 className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}
               >
                 {statusLabel(quote.status)}
               </span>
-              <p className="mt-2 text-lg font-semibold tabular-nums">${Number(quote.total).toFixed(2)}</p>
+              <p className="mt-1.5 text-2xl font-bold tabular-nums">${Number(quote.total).toFixed(2)}</p>
+              <p className="text-[11px] text-foreground/40 tabular-nums">
+                Sub ${Number(quote.subtotal).toFixed(2)} · Tax ${Number(quote.tax).toFixed(2)}
+              </p>
             </div>
             <details className="relative">
               <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 text-sm text-foreground/60 transition hover:bg-foreground/5">
@@ -282,122 +284,142 @@ export default async function EstimadoDetailPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4">
-        <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-          <p className="mb-3 text-sm font-semibold text-foreground/80">Estado del estimado</p>
-          <div className="flex flex-wrap gap-2">
-            {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
-              <form key={s} action={changeStatusAction}>
-                <input type="hidden" name="quoteId" value={quote.id} />
-                <input type="hidden" name="status" value={s} />
-                <button
-                  type="submit"
-                  className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${
-                    quote.status === s ? "border-accent/60 bg-accent/20 text-accent" : "border-foreground/20 text-foreground/70"
-                  }`}
-                >
-                  {statusLabel(s)}
-                </button>
-              </form>
-            ))}
-          </div>
-        </div>
+      {/* Two-column layout */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_284px]">
 
-        <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-          <input type="hidden" name="id" value={quote.id} />
-          <p className="mb-3 text-sm font-semibold text-foreground/80">Detalles</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1">
-              <span className={lbl}>Valido hasta</span>
-              <input
-                name="validUntil"
-                type="date"
-                defaultValue={quote.validUntil ? quote.validUntil.toISOString().slice(0, 10) : ""}
-                className={ic}
-              />
-            </label>
-            <label className="grid gap-1 sm:col-span-2">
-              <span className={lbl}>Notas</span>
-              <textarea
-                name="notes"
-                defaultValue={quote.notes ?? ""}
-                rows={3}
-                className={`${ic} resize-none`}
-              />
-            </label>
-            <button type="submit" className="rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background sm:col-span-2">
-              Guardar cambios
-            </button>
-          </div>
-        </form>
+        {/* Left: services + line items */}
+        <div className="space-y-4">
+          <EstimadoQuoteServices
+            quoteId={quote.id}
+            initialFrequency={frequency}
+            initialPlanTier={planTier}
+            coreServices={coreServices}
+            addonServices={addonServices}
+            updateFrequencyAction={updateFrequencyAction}
+            updatePlanTierAction={updatePlanTierAction}
+            addItemAction={addItemAction}
+          />
 
-        <EstimadoQuoteServices
-          quoteId={quote.id}
-          initialFrequency={frequency}
-          initialPlanTier={planTier}
-          coreServices={coreServices}
-          addonServices={addonServices}
-          updateFrequencyAction={updateFrequencyAction}
-          updatePlanTierAction={updatePlanTierAction}
-          addItemAction={addItemAction}
-        />
-
-        <div className="rounded-2xl border border-foreground/12 bg-background">
-          <div className="border-b border-foreground/10 px-4 py-3 text-sm font-semibold">Lineas del estimado</div>
-          {quote.items.length === 0 ? (
-            <p className="px-4 py-8 text-sm text-foreground/45">Aun no tiene lineas.</p>
-          ) : (
-            <ul className="divide-y divide-foreground/8">
-              {quote.items.map((item) => (
-                <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium">{item.service.name}</p>
-                      <span
-                        className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
-                          item.service.category === "ADD_ON"
-                            ? "border-violet-300/40 bg-violet-50/80 text-violet-700"
-                            : "border-foreground/15 bg-foreground/5 text-foreground/55"
-                        }`}
-                      >
-                        {SERVICE_CATEGORY_LABEL[item.service.category] ?? item.service.category}
-                      </span>
+          {/* Line items */}
+          <div className="rounded-2xl border border-foreground/12 bg-background">
+            <div className="border-b border-foreground/10 px-4 py-3 text-sm font-semibold">
+              Líneas del estimado
+            </div>
+            {quote.items.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-foreground/45">Aún no tiene líneas.</p>
+            ) : (
+              <ul className="divide-y divide-foreground/8">
+                {quote.items.map((item) => (
+                  <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-medium">{item.service.name}</p>
+                        <span
+                          className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
+                            item.service.category === "ADD_ON"
+                              ? "border-violet-300/40 bg-violet-50/80 text-violet-700"
+                              : "border-foreground/15 bg-foreground/5 text-foreground/55"
+                          }`}
+                        >
+                          {SERVICE_CATEGORY_LABEL[item.service.category] ?? item.service.category}
+                        </span>
+                      </div>
+                      <p className="text-xs text-foreground/50">
+                        {Number(item.quantity)} × ${Number(item.unitPrice).toFixed(2)}
+                      </p>
+                      {item.description ? (
+                        <p className="mt-1 text-xs text-foreground/45">{item.description}</p>
+                      ) : null}
                     </div>
-                    <p className="text-xs text-foreground/50">
-                      {Number(item.quantity)} x ${Number(item.unitPrice).toFixed(2)}
-                    </p>
-                    {item.description ? <p className="mt-1 text-xs text-foreground/45">{item.description}</p> : null}
-                  </div>
-                  <div className="text-right">
-                    <p className="tabular-nums text-sm font-semibold">${Number(item.lineTotal).toFixed(2)}</p>
-                    <form action={removeItemAction} className="mt-1">
-                      <input type="hidden" name="quoteId" value={quote.id} />
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <button type="submit" className="text-xs text-rose-600 hover:underline">
-                        Quitar
-                      </button>
-                    </form>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="border-t border-foreground/10 bg-foreground/2 px-4 py-3">
-            <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
-              <div className="flex items-center justify-between text-foreground/65">
-                <span>Subtotal</span>
-                <span className="tabular-nums">${Number(quote.subtotal).toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-foreground/65">
-              <span>Tax ({taxRatePercent.toFixed(3)}%)</span>
-              <span className="tabular-nums">${Number(quote.tax).toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-foreground/12 pt-1.5 font-semibold text-foreground">
-                <span>Total</span>
-                <span className="tabular-nums">${Number(quote.total).toFixed(2)}</span>
+                    <div className="text-right">
+                      <p className="tabular-nums text-sm font-semibold">${Number(item.lineTotal).toFixed(2)}</p>
+                      <form action={removeItemAction} className="mt-1">
+                        <input type="hidden" name="quoteId" value={quote.id} />
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <button type="submit" className="text-xs text-rose-600 hover:underline">
+                          Quitar
+                        </button>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="border-t border-foreground/10 bg-foreground/2 px-4 py-3">
+              <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
+                <div className="flex items-center justify-between text-foreground/65">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">${Number(quote.subtotal).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-foreground/65">
+                  <span>Tax ({taxRatePercent.toFixed(3)}%)</span>
+                  <span className="tabular-nums">${Number(quote.tax).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-foreground/12 pt-1.5 font-semibold text-foreground">
+                  <span>Total</span>
+                  <span className="tabular-nums">${Number(quote.total).toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Right: sidebar */}
+        <div className="space-y-4">
+          {/* Status */}
+          <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+            <p className="mb-3 text-sm font-semibold text-foreground/80">Estado del estimado</p>
+            <div className="flex flex-wrap gap-2">
+              {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
+                <form key={s} action={changeStatusAction}>
+                  <input type="hidden" name="quoteId" value={quote.id} />
+                  <input type="hidden" name="status" value={s} />
+                  <button
+                    type="submit"
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+                      quote.status === s
+                        ? "border-accent/60 bg-accent/20 text-accent"
+                        : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
+                    }`}
+                  >
+                    {statusLabel(s)}
+                  </button>
+                </form>
+              ))}
+            </div>
+          </div>
+
+          {/* Details */}
+          <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+            <input type="hidden" name="id" value={quote.id} />
+            <p className="mb-3 text-sm font-semibold text-foreground/80">Detalles</p>
+            <div className="space-y-3">
+              <label className="grid gap-1">
+                <span className={lbl}>Válido hasta</span>
+                <input
+                  name="validUntil"
+                  type="date"
+                  defaultValue={quote.validUntil ? quote.validUntil.toISOString().slice(0, 10) : ""}
+                  className={ic}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className={lbl}>Notas</span>
+                <textarea
+                  name="notes"
+                  defaultValue={quote.notes ?? ""}
+                  rows={4}
+                  className={`${ic} resize-none`}
+                />
+              </label>
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background"
+              >
+                Guardar cambios
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </section>
