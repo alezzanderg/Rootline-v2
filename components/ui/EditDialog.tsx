@@ -48,7 +48,7 @@ export function EditDialog({
         className="m-auto w-full max-w-lg rounded-2xl border border-foreground/12 bg-[#fdfcf8] p-0 shadow-2xl outline-none backdrop:bg-black/50"
       >
         <div className="flex items-center justify-between border-b border-foreground/10 px-6 py-4">
-          <p className="font-(family-name:--font-display-family) text-base font-semibold text-foreground">
+          <p className="font-display text-base font-semibold text-foreground">
             {label}
           </p>
           <button

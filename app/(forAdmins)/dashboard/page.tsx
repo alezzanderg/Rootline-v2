@@ -5,7 +5,7 @@ export default function AdminDashboardPage() {
         <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-accent">
           For Admins
         </p>
-        <h1 className="font-[family-name:var(--font-display-family)] text-3xl font-semibold sm:text-4xl">
+        <h1 className="font-display text-3xl font-semibold sm:text-4xl">
           Dashboard
         </h1>
         <p className="mt-4 text-foreground/70">

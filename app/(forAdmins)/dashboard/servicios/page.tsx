@@ -2,7 +2,10 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { AssignPlanCustomerPropertyFields } from "@/components/ui/AssignPlanCustomerPropertyFields"
 import { EditDialog } from "@/components/ui/EditDialog"
+import { ServiceCatalogPriceDisplay } from "@/components/ui/ServiceCatalogPriceDisplay"
+import { ServiceCatalogPricingFields } from "@/components/ui/ServiceCatalogPricingFields"
 import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
+import { serviceCatalogPricingFromForm, serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 
 function parseDecimal(input: FormDataEntryValue | null): number | null {
   if (typeof input !== "string") return null
@@ -39,12 +42,7 @@ export default async function ServiciosAdminPage() {
         category: category as "CORE" | "ADD_ON" | "CLEANUP",
         description: parseString(formData.get("description")),
         pricingUnit: parseString(formData.get("pricingUnit")),
-        defaultPrice: parseDecimal(formData.get("defaultPrice")),
-        smallPrice: parseDecimal(formData.get("smallPrice")),
-        mediumPrice: parseDecimal(formData.get("mediumPrice")),
-        largePrice: parseDecimal(formData.get("largePrice")),
-        startingAtPrice: parseDecimal(formData.get("startingAtPrice")),
-        maxRangePrice: parseDecimal(formData.get("maxRangePrice")),
+        ...serviceCatalogPricingFromForm(formData),
         memberDiscount: parseDecimal(formData.get("memberDiscount")),
         includes: parseIncludes(formData.get("includes")),
         estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
@@ -69,12 +67,7 @@ export default async function ServiciosAdminPage() {
         category: category as "CORE" | "ADD_ON" | "CLEANUP",
         description: parseString(formData.get("description")),
         pricingUnit: parseString(formData.get("pricingUnit")),
-        defaultPrice: parseDecimal(formData.get("defaultPrice")),
-        smallPrice: parseDecimal(formData.get("smallPrice")),
-        mediumPrice: parseDecimal(formData.get("mediumPrice")),
-        largePrice: parseDecimal(formData.get("largePrice")),
-        startingAtPrice: parseDecimal(formData.get("startingAtPrice")),
-        maxRangePrice: parseDecimal(formData.get("maxRangePrice")),
+        ...serviceCatalogPricingFromForm(formData),
         memberDiscount: parseDecimal(formData.get("memberDiscount")),
         includes: parseIncludes(formData.get("includes")),
         estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
@@ -244,7 +237,7 @@ export default async function ServiciosAdminPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin catalog</p>
-          <h1 className="mt-1 font-(family-name:--font-display-family) text-3xl font-semibold sm:text-4xl">
+          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
             Servicios y planes
       </h1>
           <p className="mt-2 text-sm text-foreground/55">
@@ -270,7 +263,7 @@ export default async function ServiciosAdminPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-moss-light">Comparativa de precios</p>
-              <h2 className="mt-0.5 font-(family-name:--font-display-family) text-xl font-semibold">
+              <h2 className="mt-0.5 font-display text-xl font-semibold">
                 Membresía vs. Sin membresía
               </h2>
             </div>
@@ -321,7 +314,7 @@ export default async function ServiciosAdminPage() {
 
       {/* ── SERVICE CATALOG ────────────────────────────────────── */}
       <div className="mt-10">
-        <h2 className="font-(family-name:--font-display-family) text-2xl font-semibold">Catálogo de servicios</h2>
+        <h2 className="font-display text-2xl font-semibold">Catálogo de servicios</h2>
         <p className="mt-1 text-sm text-foreground/50">
           {services.filter((s) => s.active).length} activos · {services.length} total
         </p>
@@ -343,7 +336,7 @@ export default async function ServiciosAdminPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-(family-name:--font-display-family) text-lg font-semibold leading-snug">
+                          <h3 className="font-display text-lg font-semibold leading-snug">
                             {service.name}
                           </h3>
                           <span className={statusBadge(service.active)}>
@@ -381,36 +374,7 @@ export default async function ServiciosAdminPage() {
                       </details>
                     </div>
 
-                    {(service.smallPrice || service.mediumPrice || service.largePrice) && (
-                      <div className="mt-4 grid grid-cols-3 divide-x divide-foreground/10 overflow-hidden rounded-lg border border-foreground/12">
-                        {[
-                          { label: "Small", value: service.smallPrice },
-                          { label: "Medium", value: service.mediumPrice },
-                          { label: "Large", value: service.largePrice },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="py-3 text-center">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">{label}</p>
-                            <p className="mt-1 text-xl font-bold">{value ? `$${value.toString()}` : "—"}</p>
-                            {service.pricingUnit && (
-                              <p className="text-[10px] text-foreground/35">{service.pricingUnit}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {service.startingAtPrice && !service.smallPrice && (
-                      <div className="mt-4 flex items-baseline gap-2 rounded-lg border border-foreground/12 px-4 py-3">
-                        <span className="text-xs uppercase tracking-wider text-foreground/40">Desde</span>
-                        <span className="text-2xl font-bold">${service.startingAtPrice.toString()}</span>
-                        {service.maxRangePrice && (
-                          <span className="text-sm text-foreground/50">hasta ${service.maxRangePrice.toString()}</span>
-                        )}
-                        {service.pricingUnit && (
-                          <span className="ml-auto text-xs text-foreground/35">{service.pricingUnit}</span>
-                        )}
-                      </div>
-                    )}
+                    <ServiceCatalogPriceDisplay {...serviceCatalogPricingProps(service)} />
 
                     {inc.length > 0 && (
                       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
@@ -447,30 +411,7 @@ export default async function ServiciosAdminPage() {
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Unidad de precio</span>
                             <input name="pricingUnit" defaultValue={service.pricingUnit ?? ""} className={ic} />
                           </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio Small</span>
-                            <input name="smallPrice" type="number" step="0.01" defaultValue={service.smallPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio Medium</span>
-                            <input name="mediumPrice" type="number" step="0.01" defaultValue={service.mediumPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio Large</span>
-                            <input name="largePrice" type="number" step="0.01" defaultValue={service.largePrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio base</span>
-                            <input name="defaultPrice" type="number" step="0.01" defaultValue={service.defaultPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Desde</span>
-                            <input name="startingAtPrice" type="number" step="0.01" defaultValue={service.startingAtPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Hasta</span>
-                            <input name="maxRangePrice" type="number" step="0.01" defaultValue={service.maxRangePrice?.toString() ?? ""} className={ic} />
-                          </label>
+                          <ServiceCatalogPricingFields service={service} />
                           <label className="grid gap-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descuento miembros %</span>
                             <input name="memberDiscount" type="number" step="0.01" defaultValue={service.memberDiscount?.toString() ?? ""} className={ic} />
@@ -521,7 +462,7 @@ export default async function ServiciosAdminPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-(family-name:--font-display-family) text-lg font-semibold leading-snug">
+                          <h3 className="font-display text-lg font-semibold leading-snug">
                             {service.name}
                           </h3>
                           <span className={statusBadge(service.active)}>
@@ -559,36 +500,7 @@ export default async function ServiciosAdminPage() {
                       </details>
                     </div>
 
-                    {(service.smallPrice || service.mediumPrice || service.largePrice) && (
-                      <div className="mt-4 grid grid-cols-3 divide-x divide-foreground/10 overflow-hidden rounded-lg border border-foreground/12">
-                        {[
-                          { label: "Small", value: service.smallPrice },
-                          { label: "Medium", value: service.mediumPrice },
-                          { label: "Large", value: service.largePrice },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="py-3 text-center">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">{label}</p>
-                            <p className="mt-1 text-xl font-bold">{value ? `$${value.toString()}` : "—"}</p>
-                            {service.pricingUnit && (
-                              <p className="text-[10px] text-foreground/35">{service.pricingUnit}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {service.startingAtPrice && !service.smallPrice && (
-                      <div className="mt-4 flex items-baseline gap-2 rounded-lg border border-foreground/12 px-4 py-3">
-                        <span className="text-xs uppercase tracking-wider text-foreground/40">Desde</span>
-                        <span className="text-2xl font-bold">${service.startingAtPrice.toString()}</span>
-                        {service.maxRangePrice && (
-                          <span className="text-sm text-foreground/50">hasta ${service.maxRangePrice.toString()}</span>
-                        )}
-                        {service.pricingUnit && (
-                          <span className="ml-auto text-xs text-foreground/35">{service.pricingUnit}</span>
-                        )}
-                      </div>
-                    )}
+                    <ServiceCatalogPriceDisplay {...serviceCatalogPricingProps(service)} />
 
                     {inc.length > 0 && (
                       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
@@ -625,30 +537,7 @@ export default async function ServiciosAdminPage() {
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Unidad de precio</span>
                             <input name="pricingUnit" defaultValue={service.pricingUnit ?? ""} className={ic} />
                           </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio Small</span>
-                            <input name="smallPrice" type="number" step="0.01" defaultValue={service.smallPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio Medium</span>
-                            <input name="mediumPrice" type="number" step="0.01" defaultValue={service.mediumPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio Large</span>
-                            <input name="largePrice" type="number" step="0.01" defaultValue={service.largePrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Precio base</span>
-                            <input name="defaultPrice" type="number" step="0.01" defaultValue={service.defaultPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Desde</span>
-                            <input name="startingAtPrice" type="number" step="0.01" defaultValue={service.startingAtPrice?.toString() ?? ""} className={ic} />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Hasta</span>
-                            <input name="maxRangePrice" type="number" step="0.01" defaultValue={service.maxRangePrice?.toString() ?? ""} className={ic} />
-                          </label>
+                          <ServiceCatalogPricingFields service={service} />
                           <label className="grid gap-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descuento miembros %</span>
                             <input name="memberDiscount" type="number" step="0.01" defaultValue={service.memberDiscount?.toString() ?? ""} className={ic} />
@@ -728,18 +617,7 @@ export default async function ServiciosAdminPage() {
                     </details>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-foreground/12 px-3 py-2.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Rango de precio</p>
-                    <p className="mt-1 text-lg font-bold">
-                      ${service.startingAtPrice?.toString() ?? service.defaultPrice?.toString() ?? "—"}
-                      {service.maxRangePrice && (
-                        <span className="text-sm font-normal text-foreground/50"> – ${service.maxRangePrice.toString()}</span>
-                      )}
-                    </p>
-                    {service.pricingUnit && (
-                      <p className="text-[10px] text-foreground/35">{service.pricingUnit}</p>
-                    )}
-                  </div>
+                  <ServiceCatalogPriceDisplay {...serviceCatalogPricingProps(service)} />
 
                   {service.memberDiscount && (
                     <div className="mt-2 flex items-center gap-2 rounded-md border border-primary/25 bg-primary/6 px-3 py-2">
@@ -772,14 +650,7 @@ export default async function ServiciosAdminPage() {
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Unidad</span>
                           <input name="pricingUnit" defaultValue={service.pricingUnit ?? ""} className={ic} />
                         </label>
-                        <label className="grid gap-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Desde</span>
-                          <input name="startingAtPrice" type="number" step="0.01" defaultValue={service.startingAtPrice?.toString() ?? ""} className={ic} />
-                        </label>
-                        <label className="grid gap-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Hasta</span>
-                          <input name="maxRangePrice" type="number" step="0.01" defaultValue={service.maxRangePrice?.toString() ?? ""} className={ic} />
-                        </label>
+                        <ServiceCatalogPricingFields service={service} />
                         <label className="grid gap-1">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descuento miembros %</span>
                           <input name="memberDiscount" type="number" step="0.01" defaultValue={service.memberDiscount?.toString() ?? ""} className={ic} />
@@ -809,7 +680,7 @@ export default async function ServiciosAdminPage() {
       <div className="mt-10 grid gap-8 xl:grid-cols-[1fr_320px]">
 
         <div>
-          <h2 className="font-(family-name:--font-display-family) text-2xl font-semibold">Planes activos</h2>
+          <h2 className="font-display text-2xl font-semibold">Planes activos</h2>
           {plans.length === 0 ? (
             <p className="mt-3 text-sm text-foreground/50">No hay planes registrados todavía.</p>
           ) : (
@@ -821,7 +692,7 @@ export default async function ServiciosAdminPage() {
                 return (
                   <article key={plan.id} className="flex flex-col rounded-xl border border-white/10 bg-forest p-5 text-cream">
                     <p className="text-xs font-bold uppercase tracking-widest text-moss-light">{plan.tier}</p>
-                    <p className="mt-1 font-(family-name:--font-display-family) text-lg font-semibold">{plan.name}</p>
+                    <p className="mt-1 font-display text-lg font-semibold">{plan.name}</p>
                     <div className="mt-3 flex items-baseline gap-1">
                       <span className="text-3xl font-bold">${plan.monthlyPrice.toString()}</span>
                       <span className="text-sm text-cream/45">/mes</span>
@@ -914,7 +785,7 @@ export default async function ServiciosAdminPage() {
         </div>
 
         <div>
-          <h2 className="font-(family-name:--font-display-family) text-2xl font-semibold">Asignaciones</h2>
+          <h2 className="font-display text-2xl font-semibold">Asignaciones</h2>
           <p className="mt-1 text-sm text-foreground/50">Clientes con plan activo</p>
           {activeMemberships.length === 0 ? (
             <p className="mt-4 text-sm text-foreground/45">Sin asignaciones activas todavía.</p>
@@ -946,7 +817,7 @@ export default async function ServiciosAdminPage() {
 
           <div className="mt-5 grid gap-6 xl:grid-cols-3">
             <section className="rounded-xl border border-foreground/10 bg-background p-5 xl:col-span-2">
-              <h3 className="font-(family-name:--font-display-family) text-lg font-semibold">Nuevo servicio o add-on</h3>
+              <h3 className="font-display text-lg font-semibold">Nuevo servicio o add-on</h3>
               <form action={createServiceAction} className="mt-4 grid gap-3 md:grid-cols-2">
                 <input name="name" required placeholder="Service name" className={ic} />
                 <input name="slug" required placeholder="slug-ejemplo" className={ic} />
@@ -955,13 +826,8 @@ export default async function ServiciosAdminPage() {
                   <option value="ADD_ON">Add-on</option>
                   <option value="CLEANUP">Cleanup</option>
                 </select>
-                <input name="pricingUnit" placeholder="per visit" className={ic} />
-                <input name="smallPrice" type="number" min="0" step="0.01" placeholder="Small price" className={ic} />
-                <input name="mediumPrice" type="number" min="0" step="0.01" placeholder="Medium price" className={ic} />
-                <input name="largePrice" type="number" min="0" step="0.01" placeholder="Large price" className={ic} />
-                <input name="defaultPrice" type="number" min="0" step="0.01" placeholder="Default/base price" className={ic} />
-                <input name="startingAtPrice" type="number" min="0" step="0.01" placeholder="Starting at (optional)" className={ic} />
-                <input name="maxRangePrice" type="number" min="0" step="0.01" placeholder="Max range (optional)" className={ic} />
+                <input name="pricingUnit" placeholder="per visit" className={`${ic} md:col-span-2`} />
+                <ServiceCatalogPricingFields />
                 <input name="memberDiscount" type="number" min="0" step="0.01" placeholder="Member discount %" className={ic} />
                 <input name="estimatedMinutes" type="number" min="0" step="1" placeholder="Estimated minutes" className={ic} />
                 <input name="description" placeholder="Description" className={`${ic} md:col-span-2`} />
@@ -977,7 +843,7 @@ export default async function ServiciosAdminPage() {
             </section>
 
             <section className="rounded-xl border border-foreground/10 bg-background p-5">
-              <h3 className="font-(family-name:--font-display-family) text-lg font-semibold">Nuevo plan</h3>
+              <h3 className="font-display text-lg font-semibold">Nuevo plan</h3>
               <form action={createPlanAction} className="mt-4 grid gap-3">
                 <input name="name" required placeholder="Plan name" className={ic} />
                 <input name="slug" required placeholder="plan-slug" className={ic} />
@@ -1007,7 +873,7 @@ export default async function ServiciosAdminPage() {
           </div>
 
           <section className="mt-4 rounded-xl border border-foreground/10 bg-background p-5">
-            <h3 className="font-(family-name:--font-display-family) text-lg font-semibold">Asignar plan a cliente</h3>
+            <h3 className="font-display text-lg font-semibold">Asignar plan a cliente</h3>
             <p className="mt-1 text-sm text-foreground/50">Define el plan y horario preferido del cliente.</p>
             <form action={assignPlanAction} className="mt-4 grid gap-3 md:grid-cols-2">
               <AssignPlanCustomerPropertyFields customers={assignPlanCustomers} ic={ic} lbl={lbl} />

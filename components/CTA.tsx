@@ -2,6 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight, Phone, Mail, MapPin } from "lucide-react"
 
+import { ServiceRequestDialog } from "@/components/ServiceRequestDialog"
 import { Button } from "@/components/ui/button"
 import { marketingImages } from "@/lib/marketing-images"
 
@@ -14,8 +15,8 @@ const copy = {
   en: {
     title: "READY TO TRANSFORM YOUR OUTDOOR SPACE?",
     text: "Contact us today for a free estimate. We'll keep your lawn looking fresh and well-maintained all season long.",
-    primary: "Get Free Estimate",
-    secondary: "Call Now",
+    primary: "Call now",
+    request: "Request our services",
     contact: "GET IN TOUCH",
     phoneLabel: "Phone",
     areaLabel: "Service Area",
@@ -24,8 +25,8 @@ const copy = {
   es: {
     title: "LISTO PARA MEJORAR TU PATIO?",
     text: "Contactanos hoy para un estimado gratis. Mantendremos tu cesped limpio, parejo y bien cuidado toda la temporada.",
-    primary: "Solicitar estimado",
-    secondary: "Llamar ahora",
+    primary: "Llamar ahora",
+    request: "Solicitar servicios",
     contact: "CONTACTO",
     phoneLabel: "Teléfono",
     areaLabel: "Area de servicio",
@@ -89,31 +90,24 @@ export function CTA({ locale = "en" }: { locale?: Locale }) {
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
             <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-primary uppercase">Rootline Landscaping</p>
-            <h2 className="font-(family-name:--font-display-family) text-4xl text-balance text-foreground sm:text-5xl lg:text-6xl">
+            <h2 className="font-display text-4xl text-balance text-foreground sm:text-5xl lg:text-6xl">
               {t.title}
             </h2>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-foreground/70">{t.text}</p>
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <Button size="lg" className="bg-accent px-8 text-lg font-semibold text-accent-foreground shadow-lg shadow-terra/20 hover:bg-accent/90" asChild>
+            <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+              <ServiceRequestDialog locale={locale} />
+              <Button size="lg" variant="outline" className="border-forest/25 bg-white/60 text-forest hover:bg-secondary hover:text-cream" asChild>
                 <a href={`tel:${PHONE_TEL}`}>
                   {t.primary}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-forest/25 bg-white/60 text-forest hover:bg-secondary hover:text-cream"
-                asChild
-              >
-                <a href={`tel:${PHONE_TEL}`}>{t.secondary}</a>
               </Button>
             </div>
           </div>
 
           <div className="rounded-2xl border border-forest/20 bg-forest p-8 shadow-xl shadow-forest/20 lg:p-10">
               <div className="mb-6 h-1 w-16 rounded-full bg-moss" />
-              <h3 className="font-(family-name:--font-display-family) text-2xl text-cream">{t.contact}</h3>
+              <h3 className="font-display text-2xl text-cream">{t.contact}</h3>
               <div className="mt-8 space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-moss/25 ring-1 ring-moss/40">

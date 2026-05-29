@@ -295,7 +295,7 @@ export default async function CustomerDetailPage({
       {/* Header */}
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-[family-name:var(--font-display-family)] text-3xl font-semibold sm:text-4xl">
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">
             {customer.firstName} {customer.lastName}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground/60">
@@ -402,7 +402,7 @@ export default async function CustomerDetailPage({
       <div className="mt-8 rounded-xl border border-foreground/10 bg-background p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-[family-name:var(--font-display-family)] text-lg font-semibold">
+            <h2 className="font-display text-lg font-semibold">
               Propiedades
             </h2>
             <p className="text-sm text-foreground/55">
@@ -519,7 +519,7 @@ export default async function CustomerDetailPage({
       <div className="mt-4 rounded-xl border border-foreground/10 bg-background p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="font-[family-name:var(--font-display-family)] text-lg font-semibold">
+            <h2 className="font-display text-lg font-semibold">
               Membresía
             </h2>
             {activeMembership ? (
@@ -623,7 +623,7 @@ export default async function CustomerDetailPage({
 
       {/* Billing */}
       <div className="mt-4 rounded-xl border border-foreground/10 bg-background p-5">
-        <h2 className="font-[family-name:var(--font-display-family)] text-lg font-semibold">
+        <h2 className="font-display text-lg font-semibold">
           Facturación
         </h2>
         <p className="mt-0.5 text-sm text-foreground/55">

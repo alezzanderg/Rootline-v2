@@ -3,34 +3,49 @@
 import { useState, useTransition } from "react"
 
 import { isRecurringFrequency } from "@/lib/quote-labels"
+import {
+  PLAN_TIER_LABEL,
+  resolveServiceUnitPrice,
+  type PlanTier,
+  type ServiceFrequency,
+  type ServicePricingRecord,
+} from "@/lib/service-pricing"
 
 export type EstimadoServiceOption = {
   id: string
   name: string
   category: string
-  defaultPrice: number | null
-  startingAtPrice: number | null
   pricingUnit: string | null
+  pricing: ServicePricingRecord
 }
 
 const ic =
   "rounded-xl border border-foreground/20 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-accent"
 const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
-function catalogPrice(s: EstimadoServiceOption): string {
-  const n = s.defaultPrice ?? s.startingAtPrice
+function resolvePrice(
+  service: EstimadoServiceOption | undefined,
+  frequency: ServiceFrequency,
+  tier: PlanTier
+): string {
+  if (!service) return ""
+  const n = resolveServiceUnitPrice(service.pricing, frequency, tier)
   return n != null ? String(n) : ""
 }
 
 function AddLineForm({
   quoteId,
   services,
+  frequency,
+  planTier,
   title,
   hint,
   addItemAction,
 }: {
   quoteId: string
   services: EstimadoServiceOption[]
+  frequency: ServiceFrequency
+  planTier: PlanTier
   title: string
   hint?: string
   addItemAction: (formData: FormData) => Promise<void>
@@ -42,7 +57,7 @@ function AddLineForm({
   function onServiceChange(id: string) {
     setServiceId(id)
     const svc = services.find((s) => s.id === id)
-    setUnitPrice(svc ? catalogPrice(svc) : "")
+    setUnitPrice(resolvePrice(svc, frequency, planTier))
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -81,12 +96,16 @@ function AddLineForm({
             className={ic}
           >
             <option value="">Selecciona</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-                {s.pricingUnit ? ` (${s.pricingUnit})` : ""}
-              </option>
-            ))}
+            {services.map((s) => {
+              const p = resolveServiceUnitPrice(s.pricing, frequency, planTier)
+              return (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                  {p != null ? ` — $${p}` : ""}
+                  {s.pricingUnit ? ` (${s.pricingUnit})` : ""}
+                </option>
+              )
+            })}
           </select>
         </label>
         <label className="grid gap-1">
@@ -125,23 +144,37 @@ function AddLineForm({
 export function EstimadoQuoteServices({
   quoteId,
   initialFrequency,
+  initialPlanTier,
   coreServices,
   addonServices,
   updateFrequencyAction,
+  updatePlanTierAction,
   addItemAction,
 }: {
   quoteId: string
   initialFrequency: string | null
+  initialPlanTier: string | null
   coreServices: EstimadoServiceOption[]
   addonServices: EstimadoServiceOption[]
   updateFrequencyAction: (formData: FormData) => Promise<void>
+  updatePlanTierAction: (formData: FormData) => Promise<void>
   addItemAction: (formData: FormData) => Promise<void>
 }) {
-  const [frequency, setFrequency] = useState(initialFrequency ?? "ONE_TIME")
+  const [frequency, setFrequency] = useState<ServiceFrequency>(
+    (initialFrequency === "WEEKLY" || initialFrequency === "BIWEEKLY" || initialFrequency === "ONE_TIME"
+      ? initialFrequency
+      : "ONE_TIME") as ServiceFrequency
+  )
+  const [planTier, setPlanTier] = useState<PlanTier>(
+    (initialPlanTier === "SMALL" || initialPlanTier === "MEDIUM" || initialPlanTier === "LARGE"
+      ? initialPlanTier
+      : "MEDIUM") as PlanTier
+  )
   const [freqPending, startFreqTransition] = useTransition()
+  const [tierPending, startTierTransition] = useTransition()
   const showAddons = isRecurringFrequency(frequency)
 
-  function onFrequencyChange(next: string) {
+  function onFrequencyChange(next: ServiceFrequency) {
     setFrequency(next)
     const formData = new FormData()
     formData.set("quoteId", quoteId)
@@ -151,12 +184,22 @@ export function EstimadoQuoteServices({
     })
   }
 
+  function onPlanTierChange(next: PlanTier) {
+    setPlanTier(next)
+    const formData = new FormData()
+    formData.set("quoteId", quoteId)
+    formData.set("planTier", next)
+    startTierTransition(async () => {
+      await updatePlanTierAction(formData)
+    })
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
         <p className="text-sm font-semibold text-foreground/80">Frecuencia del servicio</p>
         <p className="mt-1 text-xs text-foreground/45">
-          Semanal o quincenal habilita complementos (add-ons) por visita.
+          Semanal o quincenal habilita complementos. Una vez usa precios más altos del catálogo.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {(
@@ -183,11 +226,35 @@ export function EstimadoQuoteServices({
         </div>
       </div>
 
+      <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+        <p className="text-sm font-semibold text-foreground/80">Tamaño del yard</p>
+        <p className="mt-1 text-xs text-foreground/45">Define Small / Medium / Large para el precio por visita.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(["SMALL", "MEDIUM", "LARGE"] as const).map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              disabled={tierPending}
+              onClick={() => onPlanTierChange(tier)}
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+                planTier === tier
+                  ? "border-accent/60 bg-accent/20 text-accent"
+                  : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
+              }`}
+            >
+              {PLAN_TIER_LABEL[tier]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <AddLineForm
         quoteId={quoteId}
         services={coreServices}
+        frequency={frequency}
+        planTier={planTier}
         title="Servicio principal"
-        hint="Corte, mantenimiento o limpieza base del estimado."
+        hint="Precio según frecuencia y tamaño del yard (catálogo)."
         addItemAction={addItemAction}
       />
 
@@ -195,8 +262,10 @@ export function EstimadoQuoteServices({
         <AddLineForm
           quoteId={quoteId}
           services={addonServices}
+          frequency={frequency}
+          planTier={planTier}
           title="Complementos (add-ons)"
-          hint="Extras por visita: arbustos, bolsas, escombros, etc."
+          hint="Extras por visita según frecuencia y tamaño."
           addItemAction={addItemAction}
         />
       ) : (

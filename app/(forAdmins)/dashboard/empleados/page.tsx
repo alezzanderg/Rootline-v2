@@ -329,7 +329,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
-          <h1 className="mt-1 font-[family-name:var(--font-display-family)] text-3xl font-semibold sm:text-4xl">
+          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
             Empleados y roles
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-foreground/55">
@@ -450,7 +450,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
               {employees.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center">
-                    <p className="font-[family-name:var(--font-display-family)] text-lg font-semibold text-foreground/40">
+                    <p className="font-display text-lg font-semibold text-foreground/40">
                       No hay empleados todavía
                     </p>
                     <p className="mt-1 text-sm text-foreground/35">
@@ -598,7 +598,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
 
       {/* Admin users (panel login) */}
       <div className="mt-10">
-        <h2 className="font-[family-name:var(--font-display-family)] text-xl font-semibold">Acceso al panel web</h2>
+        <h2 className="font-display text-xl font-semibold">Acceso al panel web</h2>
         <p className="mt-1 text-sm text-foreground/55">
           Cuentas vinculadas por email al empleado. Inicio de sesión en{" "}
           <Link href="/auth" className="text-accent hover:underline">

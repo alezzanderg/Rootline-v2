@@ -112,7 +112,7 @@ export default async function EstimadosPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
-          <h1 className="mt-1 font-(family-name:--font-display-family) text-3xl font-semibold sm:text-4xl">
+          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
             Estimados
           </h1>
           <p className="mt-2 text-sm text-foreground/55">
@@ -222,7 +222,7 @@ export default async function EstimadosPage({ searchParams }: PageProps) {
             <div className="px-5 py-12 text-center">
               {quotes.length === 0 ? (
                 <>
-                  <p className="font-(family-name:--font-display-family) text-lg font-semibold text-foreground/40">
+                  <p className="font-display text-lg font-semibold text-foreground/40">
                     No hay estimados todavia
                   </p>
                   <p className="mt-1 text-sm text-foreground/35">

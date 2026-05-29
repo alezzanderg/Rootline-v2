@@ -5,10 +5,12 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import {
+  Bell,
   BriefcaseBusiness,
   CalendarClock,
   ClipboardList,
   FolderOpen,
+  Inbox,
   LayoutDashboard,
   Menu,
   Package,
@@ -26,7 +28,21 @@ type AdminDashboardShellProps = {
   displayName: string
   initials: string
   email: string
+  newInquiryCount?: number
   signOutAction: () => Promise<void>
+}
+
+function InquiryBadge({ count, className = "" }: { count: number; className?: string }) {
+  if (count <= 0) return null
+  const label = count > 99 ? "99+" : String(count)
+  return (
+    <span
+      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#c45c3e] px-1 text-[10px] font-bold leading-none text-white ${className}`}
+      aria-hidden
+    >
+      {label}
+    </span>
+  )
 }
 
 export default function AdminDashboardShell({
@@ -34,6 +50,7 @@ export default function AdminDashboardShell({
   displayName,
   initials,
   email,
+  newInquiryCount = 0,
   signOutAction,
 }: Readonly<AdminDashboardShellProps>) {
   const pathname = usePathname()
@@ -46,6 +63,7 @@ export default function AdminDashboardShell({
     { href: "/dashboard/scheduling", label: "Scheduling", icon: CalendarClock },
     { href: "/dashboard/estimados", label: "Estimados", icon: ClipboardList },
     { href: "/dashboard/clientes", label: "Clientes", icon: Users },
+    { href: "/dashboard/solicitudes", label: "Solicitudes", icon: Inbox },
     { href: "/dashboard/servicios", label: "Lista de servicios", icon: BriefcaseBusiness },
     { href: "/dashboard/productos", label: "Productos", icon: Package },
     { href: "/dashboard/herramientas", label: "Herramientas", icon: Wrench },
@@ -92,7 +110,25 @@ export default function AdminDashboardShell({
             </div>
           </div>
 
-          <details className="relative">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/dashboard/solicitudes"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/15 text-[#E7E2D6]/90 transition hover:bg-[#262626]"
+              aria-label={
+                newInquiryCount > 0
+                  ? `${newInquiryCount} nueva${newInquiryCount === 1 ? "" : "s"} solicitud${newInquiryCount === 1 ? "" : "es"}`
+                  : "Solicitudes"
+              }
+              title="Solicitudes"
+            >
+              <Bell className={`h-4 w-4 ${newInquiryCount > 0 ? "text-[#E7E2D6]" : ""}`} />
+              <InquiryBadge
+                count={newInquiryCount}
+                className="absolute -top-1 -right-1 ring-2 ring-[#151515]"
+              />
+            </Link>
+
+            <details className="relative">
             <summary className="flex cursor-pointer list-none items-center gap-3 rounded-md px-2 py-1.5 transition hover:bg-[#262626]">
               <span className="hidden text-sm text-[#E7E2D6]/80 sm:block">{displayName}</span>
               <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#6C8C4A]/60 bg-[#1f1f1f] text-sm font-semibold text-[#E7E2D6]">
@@ -118,6 +154,7 @@ export default function AdminDashboardShell({
               </form>
             </div>
           </details>
+          </div>
         </div>
       </header>
 
@@ -157,7 +194,12 @@ export default function AdminDashboardShell({
                     }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    <span>{item.label}</span>
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      {item.label}
+                      {item.href === "/dashboard/solicitudes" ? (
+                        <InquiryBadge count={newInquiryCount} />
+                      ) : null}
+                    </span>
                   </Link>
                 )
               })}
@@ -216,15 +258,26 @@ export default function AdminDashboardShell({
                     } ${isSidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"}`}
                     title={isSidebarCollapsed ? item.label : undefined}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="relative shrink-0">
+                      <Icon className="h-4 w-4" />
+                      {item.href === "/dashboard/solicitudes" && isSidebarCollapsed ? (
+                        <InquiryBadge
+                          count={newInquiryCount}
+                          className="absolute -top-2 -right-2 scale-90"
+                        />
+                      ) : null}
+                    </span>
                     <span
-                      className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
+                      className={`flex flex-1 items-center justify-between gap-2 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
                         isSidebarCollapsed
                           ? "w-0 -translate-x-1 opacity-0"
                           : "w-auto translate-x-0 opacity-100"
                       }`}
                     >
                       {item.label}
+                      {item.href === "/dashboard/solicitudes" && !isSidebarCollapsed ? (
+                        <InquiryBadge count={newInquiryCount} />
+                      ) : null}
                     </span>
                   </Link>
                 )
@@ -234,7 +287,7 @@ export default function AdminDashboardShell({
         </aside>
 
         <main
-          className={`min-w-0 flex-1 px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-22 transition-[margin] duration-300 ease-in-out sm:px-6 sm:pb-8 lg:px-10 lg:pb-12 lg:pt-24 ${
+          className={`dashboard-main-padding min-w-0 flex-1 px-3 pt-22 transition-[margin] duration-300 ease-in-out sm:px-6 lg:px-10 lg:pt-24 ${
             isSidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
           }`}
         >

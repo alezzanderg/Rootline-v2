@@ -165,7 +165,7 @@ export default async function SchedulingPage() {
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">
             Operations
           </p>
-          <h1 className="mt-1 font-[family-name:var(--font-display-family)] text-3xl font-semibold sm:text-4xl">
+          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
             Scheduling
           </h1>
           <p className="mt-3 max-w-2xl text-foreground/70">
@@ -177,7 +177,7 @@ export default async function SchedulingPage() {
       <section className="mt-6 rounded-xl border border-foreground/10 bg-background p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-[family-name:var(--font-display-family)] text-xl font-semibold">
+            <h2 className="font-display text-xl font-semibold">
               Quick actions
             </h2>
             <p className="text-sm text-foreground/65">
@@ -353,7 +353,7 @@ function JobPanel({
 }) {
   return (
     <section className="rounded-xl border border-foreground/10 bg-background p-4">
-      <h2 className="font-[family-name:var(--font-display-family)] text-xl font-semibold">{title}</h2>
+      <h2 className="font-display text-xl font-semibold">{title}</h2>
 
       {jobs.length === 0 ? (
         <p className="mt-4 text-sm text-foreground/60">{emptyText}</p>

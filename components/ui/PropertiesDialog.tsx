@@ -105,7 +105,7 @@ export function PropertiesDialog({
       >
         <div className="flex items-center justify-between border-b border-foreground/10 px-6 py-4">
           <div>
-            <p className="font-(family-name:--font-display-family) text-base font-semibold text-foreground">
+            <p className="font-display text-base font-semibold text-foreground">
               Propiedades
             </p>
             <p className="text-xs text-foreground/45">{customerName}</p>

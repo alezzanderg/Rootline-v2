@@ -162,7 +162,7 @@ export function SchedulingTimeline({
     <section className="mt-8 rounded-xl border border-foreground/10 bg-background p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-[family-name:var(--font-display-family)] text-xl font-semibold">
+          <h2 className="font-display text-xl font-semibold">
             Weekly Timeline
           </h2>
           <p className="text-sm text-foreground/65">
@@ -317,7 +317,7 @@ export function SchedulingTimeline({
         </div>
 
         <aside className="rounded-xl border border-foreground/10 bg-[#151515]/20 p-4">
-          <h3 className="font-[family-name:var(--font-display-family)] text-lg font-semibold">
+          <h3 className="font-display text-lg font-semibold">
             Visit details
           </h3>
 

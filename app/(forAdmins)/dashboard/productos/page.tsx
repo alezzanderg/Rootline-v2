@@ -182,9 +182,9 @@ export default async function ProductosPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
-          <h1 className="mt-1 font-(family-name:--font-display-family) text-3xl font-semibold sm:text-4xl">
+          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
             Productos e inventario
-          </h1>
+      </h1>
           <p className="mt-2 max-w-2xl text-sm text-foreground/55">
             Inventario, precio de venta, costo, margen bruto y proveedores con historial de costos.
           </p>
@@ -204,7 +204,7 @@ export default async function ProductosPage() {
 
       <div className="mt-8 grid gap-6 xl:grid-cols-2">
         <section className="rounded-xl border border-foreground/10 bg-background p-5">
-          <h2 className="font-(family-name:--font-display-family) text-lg font-semibold">Proveedores</h2>
+          <h2 className="font-display text-lg font-semibold">Proveedores</h2>
           <p className="mt-1 text-sm text-foreground/55">Catálogo de proveedores para asociar productos y registrar precios.</p>
 
           <form action={createSupplierAction} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -331,7 +331,7 @@ export default async function ProductosPage() {
         </section>
 
         <section className="rounded-xl border border-foreground/10 bg-background p-5">
-          <h2 className="font-(family-name:--font-display-family) text-lg font-semibold">Registrar precio de proveedor</h2>
+          <h2 className="font-display text-lg font-semibold">Registrar precio de proveedor</h2>
           <p className="mt-1 text-sm text-foreground/55">
             Guarda una cotización o factura; opcionalmente actualiza el costo actual del producto.
           </p>
@@ -381,7 +381,7 @@ export default async function ProductosPage() {
       <section className="mt-8 rounded-xl border border-foreground/10 bg-background p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-(family-name:--font-display-family) text-lg font-semibold">Inventario</h2>
+            <h2 className="font-display text-lg font-semibold">Inventario</h2>
             <p className="mt-1 text-sm text-foreground/55">
               Precio de venta al cliente vs costo; margen bruto = (venta − costo) / venta.
             </p>
@@ -580,7 +580,7 @@ export default async function ProductosPage() {
       </section>
 
       <section className="mt-8 rounded-xl border border-foreground/10 bg-background p-5">
-        <h2 className="font-(family-name:--font-display-family) text-lg font-semibold">Historial de precios (proveedor)</h2>
+        <h2 className="font-display text-lg font-semibold">Historial de precios (proveedor)</h2>
         <p className="mt-1 text-sm text-foreground/55">Últimos registros de costo por producto y proveedor.</p>
         <div className="mt-4 overflow-x-auto rounded-lg border border-foreground/10">
           <table className="w-full min-w-[720px] border-collapse text-left text-sm">

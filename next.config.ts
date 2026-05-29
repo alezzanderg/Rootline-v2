@@ -2,7 +2,7 @@ import type { NextConfig } from "next"
 import path from "path"
 import { fileURLToPath } from "url"
 
-const projectRoot = path.dirname(fileURLToPath(import.meta.url))
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 const legacyLocationRedirects: Array<[string, string]> = [
   ["hudson-county", "hudson-county-nj"],
@@ -39,6 +39,7 @@ const serviceKeys = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["*.trycloudflare.com"],
+  outputFileTracingRoot: projectRoot,
   turbopack: {
     root: projectRoot,
   },

@@ -152,7 +152,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
                 </span>
               </div>
 
-              <h1 className="font-(family-name:--font-display-family) text-4xl font-semibold text-balance text-primary-foreground md:text-5xl lg:text-6xl">
+              <h1 className="font-display text-4xl font-semibold text-balance text-primary-foreground md:text-5xl lg:text-6xl">
                 {pageTitle}
               </h1>
 
@@ -185,7 +185,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
         <section className="py-16 md:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl">
-              <h2 className="font-(family-name:--font-display-family) text-2xl font-semibold text-foreground md:text-3xl">
+              <h2 className="font-display text-2xl font-semibold text-foreground md:text-3xl">
                 {t.servicesIn(serviceData.name, baseLocation.name)}
               </h2>
               <p className="mt-6 leading-relaxed text-muted-foreground">{locationData.intro}</p>
@@ -195,7 +195,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
 
         <section className="bg-foreground/3 py-16 md:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-center font-(family-name:--font-display-family) text-2xl font-semibold text-foreground md:text-3xl">
+            <h2 className="text-center font-display text-2xl font-semibold text-foreground md:text-3xl">
               {t.ourServices}
             </h2>
             <p className="mx-auto mt-4 mb-12 max-w-2xl text-center text-muted-foreground">
@@ -218,7 +218,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
         <section className="py-16 md:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-4xl">
-              <h2 className="text-center font-(family-name:--font-display-family) text-2xl font-semibold text-foreground md:text-3xl">
+              <h2 className="text-center font-display text-2xl font-semibold text-foreground md:text-3xl">
                 {t.whoWeServe(baseLocation.name)}
               </h2>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -238,7 +238,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
 
         <section className="bg-foreground/3 py-16 md:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="mb-12 text-center font-(family-name:--font-display-family) text-2xl font-semibold text-foreground md:text-3xl">
+            <h2 className="mb-12 text-center font-display text-2xl font-semibold text-foreground md:text-3xl">
               {t.whyChoose}
             </h2>
 
@@ -275,7 +275,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
         <section className="py-16 md:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-3xl">
-              <h2 className="mb-8 text-center font-(family-name:--font-display-family) text-2xl font-semibold text-foreground md:text-3xl">
+              <h2 className="mb-8 text-center font-display text-2xl font-semibold text-foreground md:text-3xl">
                 {t.faq}
               </h2>
 
@@ -295,7 +295,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
           <section className="bg-foreground/3 py-16 md:py-20">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
               <div className="mx-auto max-w-3xl text-center">
-                <h2 className="font-(family-name:--font-display-family) text-2xl font-semibold text-foreground md:text-3xl">
+                <h2 className="font-display text-2xl font-semibold text-foreground md:text-3xl">
                   {t.nearbyTitle}
                 </h2>
                 <p className="mt-4 mb-8 text-muted-foreground">{t.nearbyIntro}</p>
@@ -317,7 +317,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
 
         <section className="bg-primary py-16 text-primary-foreground md:py-24">
           <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="font-(family-name:--font-display-family) text-2xl font-semibold md:text-3xl">
+            <h2 className="font-display text-2xl font-semibold md:text-3xl">
               {t.ctaTitle(baseLocation.name)}
             </h2>
             <p className="mx-auto mt-4 mb-8 max-w-2xl text-lg text-primary-foreground/85">

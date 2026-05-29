@@ -131,7 +131,7 @@ export function QuoteDialog({
         {/* Header */}
         <div className="flex items-start justify-between border-b border-foreground/10 px-6 py-4">
           <div>
-            <p className="font-(family-name:--font-display-family) text-base font-semibold">
+            <p className="font-display text-base font-semibold">
               Estimado{" "}
               <span className="font-mono text-sm font-normal text-foreground/40">#{quoteId.slice(0, 8)}</span>
             </p>

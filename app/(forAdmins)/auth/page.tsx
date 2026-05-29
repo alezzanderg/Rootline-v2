@@ -21,7 +21,7 @@ export default async function AdminSignInPage({ searchParams }: AuthPageProps) {
       <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-accent">
         Admin Access
       </p>
-      <h1 className="font-[family-name:var(--font-display-family)] text-3xl font-semibold">
+      <h1 className="font-display text-3xl font-semibold">
         {mode === "setup" ? "Create Password" : "Sign In"}
       </h1>
       <p className="mt-3 text-sm text-foreground/70">

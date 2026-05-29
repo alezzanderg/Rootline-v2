@@ -87,11 +87,11 @@ export function Footer({ locale = "en" }: { locale?: Locale }) {
               />
             </div>
             <p className="text-[#E7E2D6]/70 leading-relaxed max-w-md mb-6">{t.brandText}</p>
-            <p className="font-[family-name:var(--font-display-family)] text-lg text-[#6C8C4A]">{t.slogan}</p>
+            <p className="font-display text-lg text-[#6C8C4A]">{t.slogan}</p>
           </div>
 
           <div>
-            <h4 className="mb-4 font-[family-name:var(--font-display-family)] text-lg">{t.quickLinks}</h4>
+            <h4 className="mb-4 font-display text-lg">{t.quickLinks}</h4>
             <ul className="space-y-3">
               <li><Link href={servicesHref} className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.servicesLink}</Link></li>
               <li><Link href={localizedPath("/about", locale)} className="text-[#E7E2D6]/70 hover:text-[#6C8C4A] transition-colors">{t.aboutLink}</Link></li>
@@ -101,7 +101,7 @@ export function Footer({ locale = "en" }: { locale?: Locale }) {
           </div>
 
           <div>
-            <h4 className="mb-4 font-[family-name:var(--font-display-family)] text-lg">{t.services}</h4>
+            <h4 className="mb-4 font-display text-lg">{t.services}</h4>
             <ul className="space-y-3">
               <li className="text-[#E7E2D6]/70">{t.mowing}</li>
               <li className="text-[#E7E2D6]/70">{t.trim}</li>

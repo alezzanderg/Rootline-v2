@@ -27,7 +27,7 @@ export default async function ConfiguracionPage() {
     <section className="mx-auto max-w-3xl text-foreground">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
-        <h1 className="mt-1 font-(family-name:--font-display-family) text-3xl font-semibold sm:text-4xl">
+        <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
           Configuracion
         </h1>
         <p className="mt-2 text-sm text-foreground/55">

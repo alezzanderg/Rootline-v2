@@ -82,7 +82,7 @@ export default async function NuevaPropiedadPage({ params }: Props) {
       </Link>
 
       <div className="mt-3">
-        <h1 className="font-(family-name:--font-display-family) text-3xl font-semibold">Nueva propiedad</h1>
+        <h1 className="font-display text-3xl font-semibold">Nueva propiedad</h1>
         <p className="mt-1 text-sm text-foreground/55">
           {customer.firstName} {customer.lastName}
         </p>

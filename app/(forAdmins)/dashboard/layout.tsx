@@ -33,6 +33,10 @@ export default async function AdminDashboardLayout({
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("")
 
+  const newInquiryCount = await prisma.serviceInquiry.count({
+    where: { status: "NEW" },
+  })
+
   async function signOutAction() {
     "use server"
     const store = await cookies()
@@ -45,6 +49,7 @@ export default async function AdminDashboardLayout({
       displayName={displayName}
       initials={initials}
       email={sessionUser.email}
+      newInquiryCount={newInquiryCount}
       signOutAction={signOutAction}
     >
       {children}

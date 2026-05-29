@@ -5,7 +5,9 @@ import { notFound, redirect } from "next/navigation"
 import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
 import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
 import { prisma } from "@/lib/prisma"
+import { serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 import { QUOTE_FREQUENCY_LABEL, SERVICE_CATEGORY_LABEL } from "@/lib/quote-labels"
+import { inferPlanTierFromLotSqFt, PLAN_TIER_LABEL, type PlanTier } from "@/lib/service-pricing"
 
 type Props = {
   params: Promise<{ id: string }>
@@ -56,6 +58,20 @@ export default async function EstimadoDetailPage({ params }: Props) {
     await prisma.quote.update({
       where: { id: quoteId },
       data: { serviceFrequency },
+    })
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function updatePlanTierAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const raw = parseStr(formData.get("planTier"))
+    const planTier = raw === "SMALL" || raw === "MEDIUM" || raw === "LARGE" ? raw : null
+    if (!quoteId) return
+    await prisma.quote.update({
+      where: { id: quoteId },
+      data: { planTier },
     })
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
@@ -135,7 +151,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
       where: { id },
       include: {
         customer: { select: { firstName: true, lastName: true } },
-        property: { select: { street: true, city: true } },
+        property: { select: { street: true, city: true, lotSizeSqFt: true } },
         items: {
           include: { service: { select: { id: true, name: true, category: true } } },
           orderBy: { id: "asc" },
@@ -148,9 +164,21 @@ export default async function EstimadoDetailPage({ params }: Props) {
         id: true,
         name: true,
         category: true,
-        defaultPrice: true,
-        startingAtPrice: true,
         pricingUnit: true,
+        defaultPrice: true,
+        smallPrice: true,
+        mediumPrice: true,
+        largePrice: true,
+        biweeklySmallPrice: true,
+        biweeklyMediumPrice: true,
+        biweeklyLargePrice: true,
+        oneTimeSmallPrice: true,
+        oneTimeMediumPrice: true,
+        oneTimeLargePrice: true,
+        startingAtPrice: true,
+        maxRangePrice: true,
+        biweeklyStartingAtPrice: true,
+        oneTimeStartingAtPrice: true,
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
@@ -176,15 +204,23 @@ export default async function EstimadoDetailPage({ params }: Props) {
   const customerName = `${quote.customer.firstName} ${quote.customer.lastName}`
   const propertyAddress = quote.property ? `${quote.property.street}, ${quote.property.city}` : "Sin propiedad"
   const frequency = quote.serviceFrequency ?? "ONE_TIME"
+  const inferredTier = inferPlanTierFromLotSqFt(quote.property?.lotSizeSqFt ?? null)
+  const planTier: PlanTier =
+    quote.planTier === "SMALL" || quote.planTier === "MEDIUM" || quote.planTier === "LARGE"
+      ? quote.planTier
+      : inferredTier ?? "MEDIUM"
 
-  const toServiceOption = (s: (typeof services)[number]): EstimadoServiceOption => ({
-    id: s.id,
-    name: s.name,
-    category: s.category,
-    defaultPrice: s.defaultPrice != null ? Number(s.defaultPrice) : null,
-    startingAtPrice: s.startingAtPrice != null ? Number(s.startingAtPrice) : null,
-    pricingUnit: s.pricingUnit,
-  })
+  const toServiceOption = (s: (typeof services)[number]): EstimadoServiceOption => {
+    const props = serviceCatalogPricingProps(s)
+    const { pricingUnit, ...pricing } = props
+    return {
+      id: s.id,
+      name: s.name,
+      category: s.category,
+      pricingUnit: pricingUnit ?? null,
+      pricing: { ...pricing, defaultPrice: s.defaultPrice != null ? Number(s.defaultPrice) : null },
+    }
+  }
 
   const coreServices = services.filter((s) => s.category !== "ADD_ON").map(toServiceOption)
   const addonServices = services.filter((s) => s.category === "ADD_ON").map(toServiceOption)
@@ -200,13 +236,16 @@ export default async function EstimadoDetailPage({ params }: Props) {
       <div className="rounded-2xl border border-foreground/12 bg-background p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-(family-name:--font-display-family) text-2xl font-semibold">{customerName}</h1>
+            <h1 className="font-display text-2xl font-semibold">{customerName}</h1>
             <p className="text-sm text-foreground/55">{propertyAddress}</p>
             <p className="mt-1 text-xs text-foreground/50">
               Frecuencia:{" "}
               <span className="font-semibold text-foreground/70">
                 {QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}
               </span>
+              {" · "}
+              Yard:{" "}
+              <span className="font-semibold text-foreground/70">{PLAN_TIER_LABEL[planTier]}</span>
             </p>
             <p className="mt-0.5 font-mono text-xs text-foreground/45">#{quote.id.slice(0, 8)}</p>
           </div>
@@ -295,9 +334,11 @@ export default async function EstimadoDetailPage({ params }: Props) {
         <EstimadoQuoteServices
           quoteId={quote.id}
           initialFrequency={frequency}
+          initialPlanTier={planTier}
           coreServices={coreServices}
           addonServices={addonServices}
           updateFrequencyAction={updateFrequencyAction}
+          updatePlanTierAction={updatePlanTierAction}
           addItemAction={addItemAction}
         />
 
