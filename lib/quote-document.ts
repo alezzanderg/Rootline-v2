@@ -70,6 +70,8 @@ export type QuoteDocumentData = {
   mercuryInvoiceSlug: string | null
   mercuryInvoiceStatus: string | null
   paidAt: Date | null
+  paymentMethod: string | null
+  paymentNote: string | null
   stripeCheckoutUrl: string | null
   stripePaymentStatus: string | null
 }
@@ -103,6 +105,8 @@ function mapQuoteToDocument(
     mercuryInvoiceSlug: string | null
     mercuryInvoiceStatus: string | null
     paidAt: Date | null
+    paymentMethod: string | null
+    paymentNote: string | null
     stripeCheckoutUrl: string | null
     stripePaymentStatus: string | null
     customer: { firstName: string; lastName: string; email: string | null; phone: string | null }
@@ -155,6 +159,8 @@ function mapQuoteToDocument(
     mercuryInvoiceSlug: quote.mercuryInvoiceSlug,
     mercuryInvoiceStatus: quote.mercuryInvoiceStatus,
     paidAt: quote.paidAt,
+    paymentMethod: quote.paymentMethod,
+    paymentNote: quote.paymentNote,
     stripeCheckoutUrl: quote.stripeCheckoutUrl,
     stripePaymentStatus: quote.stripePaymentStatus,
     items: quote.items.map((item) => ({

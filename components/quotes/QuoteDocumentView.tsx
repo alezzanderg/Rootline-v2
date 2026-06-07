@@ -7,6 +7,7 @@ import {
   type QuoteDocumentData,
 } from "@/lib/quote-document"
 import { isQuotePaymentComplete } from "@/lib/payments/status"
+import { getQuotePaymentMethodPublicLabel } from "@/lib/payments/methods"
 import { getQuoteDocumentTitle } from "@/lib/quote-document-format"
 import { businessInfo } from "@/lib/services-data"
 
@@ -243,8 +244,15 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
               <p className="mt-1 font-display text-lg font-semibold text-emerald-900">Paid in full</p>
               <p className="mt-1 text-sm text-emerald-800/85">
                 {fmtMoney(quote.total)} received
-                {quote.paidAt ? ` on ${fmtQuoteDate(quote.paidAt)}` : ""}.
+                {quote.paidAt ? ` on ${fmtQuoteDate(quote.paidAt)}` : ""}
+                {getQuotePaymentMethodPublicLabel(quote.paymentMethod)
+                  ? ` via ${getQuotePaymentMethodPublicLabel(quote.paymentMethod)}`
+                  : ""}
+                .
               </p>
+              {quote.paymentNote && (quote.paymentMethod === "CHECK" || quote.paymentMethod === "CASH") ? (
+                <p className="mt-1 text-sm text-emerald-800/75">Reference: {quote.paymentNote}</p>
+              ) : null}
             </div>
           ) : null}
         </div>

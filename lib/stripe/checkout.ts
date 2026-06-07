@@ -109,6 +109,7 @@ export async function createStripeCheckoutForQuote(
         data: {
           stripePaymentStatus: "complete",
           paidAt: quote.paidAt ?? new Date(),
+          paymentMethod: "STRIPE",
         },
       })
       throw new StripeConfigError("This estimate has already been paid via Stripe")
@@ -176,7 +177,9 @@ export async function syncStripeCheckoutStatus(quoteId: string): Promise<string 
     data: {
       stripePaymentStatus: session.status ?? null,
       stripeCheckoutUrl: session.url ?? undefined,
-      ...(verifiedPaid ? { paidAt: quote.paidAt ?? new Date() } : {}),
+      ...(verifiedPaid
+        ? { paidAt: quote.paidAt ?? new Date(), paymentMethod: "STRIPE" as const }
+        : {}),
     },
   })
 
@@ -225,6 +228,7 @@ export async function verifyStripePaymentReturn(
         stripeCheckoutUrl: session.url ?? undefined,
         stripePaymentStatus: session.status ?? "complete",
         paidAt: new Date(),
+        paymentMethod: "STRIPE",
       },
     })
     // Revalidation runs in the Stripe webhook / admin actions — not here (page render).
@@ -252,6 +256,7 @@ export async function markQuotePaidFromStripeSession(
       stripeCheckoutUrl: session.url ?? undefined,
       stripePaymentStatus: session.status ?? "complete",
       paidAt: new Date(),
+      paymentMethod: "STRIPE",
     },
   })
 

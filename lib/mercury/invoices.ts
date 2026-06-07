@@ -202,6 +202,7 @@ export async function createMercuryInvoiceForQuote(
       mercuryInvoiceSlug: invoice.slug,
       mercuryInvoiceStatus: invoice.status,
       paidAt,
+      ...(paidAt ? { paymentMethod: "MERCURY" as const } : {}),
     },
   })
 
@@ -226,6 +227,7 @@ export async function syncMercuryInvoiceStatus(quoteId: string): Promise<Mercury
     data: {
       mercuryInvoiceStatus: invoice.status,
       paidAt,
+      ...(paidAt ? { paymentMethod: "MERCURY" as const } : {}),
     },
   })
 

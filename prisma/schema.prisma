@@ -26,6 +26,13 @@ enum QuoteStatus {
   REJECTED
 }
 
+enum QuotePaymentMethod {
+  STRIPE
+  MERCURY
+  CASH
+  CHECK
+}
+
 enum QuoteServiceFrequency {
   ONE_TIME
   WEEKLY
@@ -246,6 +253,8 @@ model Quote {
   mercuryInvoiceSlug   String?
   mercuryInvoiceStatus String?
   paidAt               DateTime?
+  paymentMethod        QuotePaymentMethod?
+  paymentNote          String?
   /** Stripe Checkout — card payments without Mercury AR subscription */
   stripeCheckoutSessionId String? @unique
   stripeCheckoutUrl       String?

@@ -474,6 +474,7 @@ export type LocationKey = keyof typeof locations
 
 export const businessInfo = {
   name: "Rootline Landscaping",
+  legalName: "Rootline Landscaping LLC",
   phone: "(551) 333-5296",
   phoneFormatted: "(551) 333-5296",
   phoneTel: "+15513335296",

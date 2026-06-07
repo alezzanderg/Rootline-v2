@@ -5,6 +5,7 @@ import { Eye } from "lucide-react"
 
 import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
 import { MercuryInvoicePanel } from "@/components/quotes/MercuryInvoicePanel"
+import { ManualPaymentPanel } from "@/components/quotes/ManualPaymentPanel"
 import { StripeCheckoutPanel } from "@/components/quotes/StripeCheckoutPanel"
 import { QuotePublicLinkPanel } from "@/components/quotes/QuotePublicLinkPanel"
 import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
@@ -407,6 +408,17 @@ export default async function EstimadoDetailPage({ params }: Props) {
             paymentStatus={quote.stripePaymentStatus}
             stripeConfigured={stripeConfigured}
             stripeModeLabel={stripeModeLabel}
+          />
+
+          <ManualPaymentPanel
+            quoteId={quote.id}
+            quoteStatus={quote.status}
+            total={Number(quote.total)}
+            paidAt={quote.paidAt?.toISOString() ?? null}
+            paymentMethod={quote.paymentMethod}
+            paymentNote={quote.paymentNote}
+            mercuryInvoiceStatus={quote.mercuryInvoiceStatus}
+            stripePaymentStatus={quote.stripePaymentStatus}
           />
 
           {/* Status */}
