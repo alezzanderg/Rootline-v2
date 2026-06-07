@@ -1,8 +1,9 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
-import { isCompleteNJAddress } from "@/lib/address-format"
+import { isCompleteNJAddress, parseCompleteUSAddress } from "@/lib/address-format"
 import { parsePhoneRequired } from "@/lib/phone-format"
 import { getInquirySubjectLabel, isValidInquirySubject } from "@/lib/service-inquiry-subjects"
 import { prisma } from "@/lib/prisma"
@@ -91,4 +92,83 @@ export async function deleteServiceInquiryAction(formData: FormData) {
   await prisma.serviceInquiry.delete({ where: { id } })
   revalidatePath("/dashboard/solicitudes")
   revalidatePath("/dashboard", "layout")
+}
+
+function titleCase(s: string) {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export async function createCustomerFromInquiryAction(formData: FormData) {
+  const id = parseStr(formData.get("id"))
+  if (!id) return
+
+  const inquiry = await prisma.serviceInquiry.findUnique({ where: { id } })
+  if (!inquiry) return
+
+  const phone = parsePhoneRequired(inquiry.phone)
+  if (!phone) return
+
+  const firstName = titleCase(inquiry.firstName.trim())
+  const lastName = titleCase(inquiry.lastName.trim())
+  const email = inquiry.email.toLowerCase()
+  const inquiryNotes = `Solicitud: ${inquiry.subject}\n\n${inquiry.message}`
+  const parsedAddress = parseCompleteUSAddress(inquiry.address)
+
+  let customer = await prisma.customer.findFirst({
+    where: { OR: [{ email }, { phone }] },
+  })
+
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: {
+        firstName,
+        lastName,
+        phone,
+        email,
+        notes: inquiryNotes,
+      },
+    })
+  } else if (!customer.notes) {
+    await prisma.customer.update({
+      where: { id: customer.id },
+      data: { notes: inquiryNotes },
+    })
+  }
+
+  if (parsedAddress) {
+    const existingProperty = await prisma.property.findFirst({
+      where: {
+        customerId: customer.id,
+        street: parsedAddress.street,
+        city: parsedAddress.city,
+        zipCode: parsedAddress.zipCode,
+      },
+    })
+
+    if (!existingProperty) {
+      await prisma.property.create({
+        data: {
+          customerId: customer.id,
+          street: parsedAddress.street,
+          city: parsedAddress.city,
+          state: parsedAddress.state,
+          zipCode: parsedAddress.zipCode,
+        },
+      })
+    }
+  }
+
+  if (inquiry.status === "NEW") {
+    await prisma.serviceInquiry.update({
+      where: { id },
+      data: { status: "READ", readAt: new Date() },
+    })
+  }
+
+  revalidatePath("/dashboard/solicitudes")
+  revalidatePath("/dashboard/clientes")
+  revalidatePath(`/dashboard/clientes/${customer.id}`)
+  revalidatePath("/dashboard", "layout")
+
+  redirect(`/dashboard/clientes/${customer.id}`)
 }

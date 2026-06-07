@@ -100,6 +100,7 @@ export default function AdminDashboardShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header
+        data-admin-chrome
         className={`fixed top-0 right-0 left-0 z-30 border-b border-white/10 bg-[#151515] transition-[left] duration-300 ease-in-out ${
           isSidebarCollapsed ? collapsedSidebarWidth : expandedSidebarWidth
         }`}
@@ -227,7 +228,7 @@ export default function AdminDashboardShell({
       </header>
 
       {isMobileMenuOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div data-admin-chrome className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
             className="absolute inset-0 bg-black/60"
@@ -278,6 +279,7 @@ export default function AdminDashboardShell({
 
       <div className="flex">
         <aside
+          data-admin-chrome
           className={`fixed top-0 left-0 z-40 hidden h-screen shrink-0 overflow-hidden border-r border-white/10 bg-[#151515] transition-[width] duration-300 ease-in-out lg:block ${
             isSidebarCollapsed ? "w-20" : "w-80"
           }`}

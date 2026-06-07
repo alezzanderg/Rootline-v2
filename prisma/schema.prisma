@@ -104,6 +104,8 @@ model Customer {
   lastName  String
   phone     String
   email     String?
+  /** Mercury Accounts Receivable customer id for online invoicing */
+  mercuryCustomerId String? @unique
   notes            String?
   difficulty       DifficultyLevel?
   isActive         Boolean  @default(true)
@@ -236,6 +238,18 @@ model Quote {
   approvedAt  DateTime?
   rejectedAt  DateTime?
   notes       String?
+  publicToken String?  @unique
+  signatureData String? @db.Text
+  signedAt    DateTime?
+  /** Mercury AR invoice — card/ACH payments via https://app.mercury.com/pay/{slug} */
+  mercuryInvoiceId     String?   @unique
+  mercuryInvoiceSlug   String?
+  mercuryInvoiceStatus String?
+  paidAt               DateTime?
+  /** Stripe Checkout — card payments without Mercury AR subscription */
+  stripeCheckoutSessionId String? @unique
+  stripeCheckoutUrl       String?
+  stripePaymentStatus     String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 

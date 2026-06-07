@@ -1,9 +1,16 @@
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
+import { Eye } from "lucide-react"
 
 import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
+import { MercuryInvoicePanel } from "@/components/quotes/MercuryInvoicePanel"
+import { StripeCheckoutPanel } from "@/components/quotes/StripeCheckoutPanel"
+import { QuotePublicLinkPanel } from "@/components/quotes/QuotePublicLinkPanel"
 import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
+import { getMercuryPayUrl, hasValidMercuryTokenFormat, isMercuryConfigured } from "@/lib/mercury/config"
+import { isStripeConfigured, getStripeMode, getStripeModeLabel } from "@/lib/stripe/config"
+import { getPublicQuoteUrl } from "@/lib/quote-document"
 import { prisma } from "@/lib/prisma"
 import { serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 import { QUOTE_FREQUENCY_LABEL, SERVICE_CATEGORY_LABEL } from "@/lib/quote-labels"
@@ -150,7 +157,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
     prisma.quote.findUnique({
       where: { id },
       include: {
-        customer: { select: { firstName: true, lastName: true } },
+        customer: { select: { firstName: true, lastName: true, email: true } },
         property: { select: { street: true, city: true, lotSizeSqFt: true } },
         items: {
           include: { service: { select: { id: true, name: true, category: true } } },
@@ -224,6 +231,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   const coreServices = services.filter((s) => s.category !== "ADD_ON").map(toServiceOption)
   const addonServices = services.filter((s) => s.category === "ADD_ON").map(toServiceOption)
+  const publicUrl = quote.publicToken ? getPublicQuoteUrl(quote.publicToken) : null
+  const mercuryPayUrl = quote.mercuryInvoiceSlug ? getMercuryPayUrl(quote.mercuryInvoiceSlug) : null
+  const mercuryConfigured = isMercuryConfigured()
+  const mercuryTokenValid = hasValidMercuryTokenFormat()
+  const stripeConfigured = isStripeConfigured()
+  const stripeMode = getStripeMode()
+  const stripeModeLabel = getStripeModeLabel(stripeMode)
 
   return (
     <section className="mx-auto max-w-5xl text-foreground">
@@ -259,6 +273,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
               <p className="text-[11px] text-foreground/40 tabular-nums">
                 Sub ${Number(quote.subtotal).toFixed(2)} · Tax ${Number(quote.tax).toFixed(2)}
               </p>
+              <Link
+                href={`/dashboard/estimados/${quote.id}/preview`}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 px-2.5 py-1 text-[11px] font-semibold text-foreground/70 transition hover:border-accent/35 hover:text-accent"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Vista previa
+              </Link>
             </div>
             <details className="relative">
               <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 text-sm text-foreground/60 transition hover:bg-foreground/5">
@@ -366,6 +387,28 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
         {/* Right: sidebar */}
         <div className="space-y-4">
+          <QuotePublicLinkPanel quoteId={quote.id} publicUrl={publicUrl} />
+
+          <MercuryInvoicePanel
+            quoteId={quote.id}
+            quoteStatus={quote.status}
+            customerEmail={quote.customer.email}
+            payUrl={mercuryPayUrl}
+            invoiceStatus={quote.mercuryInvoiceStatus}
+            mercuryConfigured={mercuryConfigured}
+            mercuryTokenValid={mercuryTokenValid}
+          />
+
+          <StripeCheckoutPanel
+            quoteId={quote.id}
+            quoteStatus={quote.status}
+            publicUrl={publicUrl}
+            checkoutUrl={quote.stripeCheckoutUrl}
+            paymentStatus={quote.stripePaymentStatus}
+            stripeConfigured={stripeConfigured}
+            stripeModeLabel={stripeModeLabel}
+          />
+
           {/* Status */}
           <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
             <p className="mb-3 text-sm font-semibold text-foreground/80">Estado del estimado</p>

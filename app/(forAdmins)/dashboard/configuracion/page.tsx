@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache"
 
-import { getTaxRatePercent, setTaxRatePercent } from "@/lib/app-settings"
+import { formatTaxRatePercent, getTaxRatePercent, setTaxRatePercent } from "@/lib/app-settings"
 
 function parseRate(v: FormDataEntryValue | null): number | null {
   if (typeof v !== "string") return null
@@ -44,7 +44,7 @@ export default async function ConfiguracionPage() {
             type="number"
             min="0"
             step="0.001"
-            defaultValue={taxRatePercent.toString()}
+            defaultValue={formatTaxRatePercent(taxRatePercent)}
             className={ic}
           />
         </label>

@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 
-import { isRecurringFrequency } from "@/lib/quote-labels"
 import {
   PLAN_TIER_LABEL,
   resolveServiceUnitPrice,
@@ -53,6 +52,12 @@ function AddLineForm({
   const [isPending, startTransition] = useTransition()
   const [serviceId, setServiceId] = useState("")
   const [unitPrice, setUnitPrice] = useState("")
+
+  useEffect(() => {
+    if (!serviceId) return
+    const svc = services.find((s) => s.id === serviceId)
+    setUnitPrice(resolvePrice(svc, frequency, planTier))
+  }, [serviceId, frequency, planTier, services])
 
   function onServiceChange(id: string) {
     setServiceId(id)
@@ -172,7 +177,6 @@ export function EstimadoQuoteServices({
   )
   const [freqPending, startFreqTransition] = useTransition()
   const [tierPending, startTierTransition] = useTransition()
-  const showAddons = isRecurringFrequency(frequency)
 
   function onFrequencyChange(next: ServiceFrequency) {
     setFrequency(next)
@@ -202,7 +206,7 @@ export function EstimadoQuoteServices({
           <div>
             <p className="text-sm font-semibold text-foreground/80">Frecuencia</p>
             <p className="mt-1 text-xs text-foreground/45">
-              Semanal o quincenal habilita complementos.
+              Ajusta precios de servicios principales y complementos.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {(
@@ -265,22 +269,15 @@ export function EstimadoQuoteServices({
         addItemAction={addItemAction}
       />
 
-      {showAddons ? (
-        <AddLineForm
-          quoteId={quoteId}
-          services={addonServices}
-          frequency={frequency}
-          planTier={planTier}
-          title="Complementos (add-ons)"
-          hint="Extras por visita según frecuencia y tamaño."
-          addItemAction={addItemAction}
-        />
-      ) : (
-        <p className="rounded-xl border border-dashed border-foreground/15 px-4 py-3 text-xs text-foreground/45">
-          Elige <strong className="font-medium text-foreground/60">Semanal</strong> o{" "}
-          <strong className="font-medium text-foreground/60">Quincenal</strong> para agregar complementos al estimado.
-        </p>
-      )}
+      <AddLineForm
+        quoteId={quoteId}
+        services={addonServices}
+        frequency={frequency}
+        planTier={planTier}
+        title="Complementos (add-ons)"
+        hint="Extras según frecuencia y tamaño del yard. Puedes ajustar el precio unitario."
+        addItemAction={addItemAction}
+      />
     </div>
   )
 }

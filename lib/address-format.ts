@@ -89,3 +89,68 @@ export function isCompleteNJAddress(address: string): boolean {
   if (zipMatch && isNewJerseyZip(zipMatch[1])) return true
   return false
 }
+
+export type ParsedUSAddress = {
+  street: string
+  city: string
+  state: string
+  zipCode: string
+}
+
+function normalizeStateAbbrev(state: string): string {
+  const s = state.trim()
+  if (/^new jersey$/i.test(s) || /^n\.j\.$/i.test(s)) return "NJ"
+  if (s.length === 2) return s.toUpperCase()
+  return s
+}
+
+/** Split a formatted US address (e.g. from service inquiries) into property fields. */
+export function parseCompleteUSAddress(address: string): ParsedUSAddress | null {
+  const trimmed = address.trim()
+  if (!isCompleteUSAddress(trimmed)) return null
+
+  const zipMatch = trimmed.match(/\b(\d{5})(?:-\d{4})?\b/)
+  if (!zipMatch) return null
+  const zipCode = zipMatch[1]
+
+  const segments = trimmed.split(",").map((part) => part.trim()).filter(Boolean)
+  if (segments.length < 2) return null
+
+  const street = segments[0]
+
+  if (segments.length >= 3) {
+    const city = segments[1]
+    const stateZip = segments.slice(2).join(" ")
+    const stateZipMatch = stateZip.match(/^([A-Za-z.\s]+?)\s+\d{5}/)
+    if (!stateZipMatch) return null
+    return {
+      street,
+      city,
+      state: normalizeStateAbbrev(stateZipMatch[1]),
+      zipCode,
+    }
+  }
+
+  const cityStateZip = segments[1]
+  const withComma = cityStateZip.match(/^(.+?),\s*([A-Za-z.\s]+?)\s+\d{5}/)
+  if (withComma) {
+    return {
+      street,
+      city: withComma[1].trim(),
+      state: normalizeStateAbbrev(withComma[2]),
+      zipCode,
+    }
+  }
+
+  const compact = cityStateZip.match(/^(.+?)\s+([A-Za-z]{2})\s+\d{5}/)
+  if (compact) {
+    return {
+      street,
+      city: compact[1].trim(),
+      state: compact[2].toUpperCase(),
+      zipCode,
+    }
+  }
+
+  return null
+}

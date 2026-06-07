@@ -1,8 +1,9 @@
 import Link from "next/link"
-import { ExternalLink, MapPin } from "lucide-react"
+import { ExternalLink, MapPin, UserPlus } from "lucide-react"
 
 import {
   archiveServiceInquiryAction,
+  createCustomerFromInquiryAction,
   deleteServiceInquiryAction,
   markServiceInquiryReadAction,
 } from "@/app/actions/service-inquiry"
@@ -178,6 +179,16 @@ export default async function SolicitudesPage({ searchParams }: Props) {
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  <form action={createCustomerFromInquiryAction}>
+                    <input type="hidden" name="id" value={active.id} />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent/25"
+                    >
+                      <UserPlus className="h-3.5 w-3.5 shrink-0" />
+                      Añadir como cliente
+                    </button>
+                  </form>
                   {active.status !== "ARCHIVED" ? (
                     <form action={archiveServiceInquiryAction}>
                       <input type="hidden" name="id" value={active.id} />

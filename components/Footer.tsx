@@ -2,6 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 import { localizedPath, type Locale } from "@/lib/locale-path"
+import { getSiteDisplayHost } from "@/lib/site-config"
 
 import { marketingImages } from "@/lib/marketing-images"
 
@@ -135,7 +136,7 @@ export function Footer({ locale = "en" }: { locale?: Locale }) {
               <Link href="https://www.facebook.com/rootlinenj/" target="_blank" rel="noopener noreferrer" className="text-[#E7E2D6]/50 hover:text-[#6C8C4A] transition-colors" aria-label="Facebook">
                 <FacebookIcon className="h-5 w-5" />
               </Link>
-              <span className="text-sm text-[#E7E2D6]/50">rootlinesco.com</span>
+              <span className="text-sm text-[#E7E2D6]/50">{getSiteDisplayHost()}</span>
             </div>
           </div>
           <div className="text-center mt-6 text-sm text-[#E7E2D6]/30">

@@ -7,6 +7,15 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+/** Tax rates need 3 decimal places (e.g. NJ 6.625%), not 2 like dollar amounts. */
+function roundTaxRatePercent(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
+export function formatTaxRatePercent(value: number): string {
+  return roundTaxRatePercent(value).toFixed(3)
+}
+
 export async function getTaxRatePercent(): Promise<number> {
   const rows = await prisma.$queryRaw<Array<{ value: string }>>`
     SELECT "value"
@@ -21,10 +30,10 @@ export async function getTaxRatePercent(): Promise<number> {
 }
 
 export async function setTaxRatePercent(percent: number): Promise<void> {
-  const normalized = Math.max(0, roundMoney(percent))
+  const normalized = Math.max(0, roundTaxRatePercent(percent))
   await prisma.$executeRaw`
     INSERT INTO "AppSetting" ("key", "value", "updatedAt")
-    VALUES (${TAX_RATE_KEY}, ${normalized.toString()}, NOW())
+    VALUES (${TAX_RATE_KEY}, ${formatTaxRatePercent(normalized)}, NOW())
     ON CONFLICT ("key")
     DO UPDATE SET
       "value" = EXCLUDED."value",
