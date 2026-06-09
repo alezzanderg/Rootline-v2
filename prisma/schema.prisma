@@ -74,6 +74,12 @@ enum PlanTier {
   LARGE
 }
 
+enum ServicePricingMode {
+  FREQ_AND_TIER
+  TIER_ONLY
+  FREQ_ONLY
+}
+
 enum MembershipStatus {
   ACTIVE
   PAUSED
@@ -161,6 +167,8 @@ model ServiceCatalog {
   name             String
   description      String?
   category         ServiceCategory @default(CORE)
+  /** How this service is priced: by frequency+size, size only, or frequency only */
+  pricingMode      ServicePricingMode @default(FREQ_AND_TIER)
   defaultPrice     Decimal? @db.Decimal(10, 2)
   /** Weekly per-visit by yard size */
   smallPrice       Decimal? @db.Decimal(10, 2)

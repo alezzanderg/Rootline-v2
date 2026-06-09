@@ -1,7 +1,10 @@
 export type PlanTier = "SMALL" | "MEDIUM" | "LARGE"
 export type ServiceFrequency = "ONE_TIME" | "WEEKLY" | "BIWEEKLY"
+export type ServicePricingMode = "FREQ_AND_TIER" | "TIER_ONLY" | "FREQ_ONLY"
 
 export type ServicePricingRecord = {
+  /** Controls which dimensions (frequency/size) affect the price. Defaults to FREQ_AND_TIER. */
+  pricingMode?: ServicePricingMode | null
   defaultPrice?: number | null
   smallPrice?: number | null
   mediumPrice?: number | null
@@ -57,6 +60,12 @@ export function resolveServiceUnitPrice(
   frequency: ServiceFrequency,
   tier: PlanTier = "MEDIUM"
 ): number | null {
+  const mode = service.pricingMode ?? "FREQ_AND_TIER"
+  // Size-only services ignore frequency (canonical row = WEEKLY).
+  if (mode === "TIER_ONLY") frequency = "WEEKLY"
+  // Frequency-only services ignore size (canonical column = MEDIUM).
+  if (mode === "FREQ_ONLY") tier = "MEDIUM"
+
   const weeklyTier = tierPrice(service, TIER_KEYS[tier])
   const weeklyBase = weeklyTier ?? service.defaultPrice ?? service.startingAtPrice ?? null
 
@@ -86,4 +95,10 @@ export const PLAN_TIER_LABEL: Record<PlanTier, string> = {
   SMALL: "Pequeño",
   MEDIUM: "Mediano",
   LARGE: "Grande",
+}
+
+export const PRICING_MODE_LABEL: Record<ServicePricingMode, string> = {
+  FREQ_AND_TIER: "Frecuencia y tamaño",
+  TIER_ONLY: "Solo tamaño",
+  FREQ_ONLY: "Solo frecuencia",
 }

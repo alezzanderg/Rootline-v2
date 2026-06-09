@@ -5,7 +5,7 @@ import { EditDialog } from "@/components/ui/EditDialog"
 import { ServiceCatalogPriceDisplay } from "@/components/ui/ServiceCatalogPriceDisplay"
 import { ServiceCatalogPricingFields } from "@/components/ui/ServiceCatalogPricingFields"
 import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
-import { serviceCatalogPricingFromForm, serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
+import { serviceCatalogFieldsProps, serviceCatalogPricingFromForm, serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 
 function parseDecimal(input: FormDataEntryValue | null): number | null {
   if (typeof input !== "string") return null
@@ -411,7 +411,7 @@ export default async function ServiciosAdminPage() {
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Unidad de precio</span>
                             <input name="pricingUnit" defaultValue={service.pricingUnit ?? ""} className={ic} />
                           </label>
-                          <ServiceCatalogPricingFields service={service} />
+                          <ServiceCatalogPricingFields service={serviceCatalogFieldsProps(service)} />
                           <label className="grid gap-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descuento miembros %</span>
                             <input name="memberDiscount" type="number" step="0.01" defaultValue={service.memberDiscount?.toString() ?? ""} className={ic} />
@@ -537,7 +537,7 @@ export default async function ServiciosAdminPage() {
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Unidad de precio</span>
                             <input name="pricingUnit" defaultValue={service.pricingUnit ?? ""} className={ic} />
                           </label>
-                          <ServiceCatalogPricingFields service={service} />
+                          <ServiceCatalogPricingFields service={serviceCatalogFieldsProps(service)} />
                           <label className="grid gap-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descuento miembros %</span>
                             <input name="memberDiscount" type="number" step="0.01" defaultValue={service.memberDiscount?.toString() ?? ""} className={ic} />
@@ -650,7 +650,7 @@ export default async function ServiciosAdminPage() {
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Unidad</span>
                           <input name="pricingUnit" defaultValue={service.pricingUnit ?? ""} className={ic} />
                         </label>
-                        <ServiceCatalogPricingFields service={service} />
+                        <ServiceCatalogPricingFields service={serviceCatalogFieldsProps(service)} />
                         <label className="grid gap-1">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descuento miembros %</span>
                           <input name="memberDiscount" type="number" step="0.01" defaultValue={service.memberDiscount?.toString() ?? ""} className={ic} />
