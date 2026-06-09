@@ -21,8 +21,8 @@ export default async function EstimadoPreviewPage({ params }: Props) {
   const isPaid = isQuotePaymentComplete(quote)
 
   return (
-    <section className="quote-document-page mx-auto max-w-4xl text-foreground">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+    <section className="quote-document-page mx-auto max-w-6xl text-foreground">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link href={`/dashboard/estimados/${id}`} className="text-sm text-foreground/55 hover:text-foreground">
           ← Volver al editor
         </Link>
@@ -45,22 +45,28 @@ export default async function EstimadoPreviewPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_300px] print:hidden">
-        <p className="text-sm text-foreground/55 lg:col-span-1">
-          Así verá el cliente el estimado en la página pública. El contenido es idéntico al enlace compartido.
-        </p>
-        <QuotePublicLinkPanel quoteId={id} publicUrl={publicUrl} />
-      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] print:block">
+        {/* Enlace público — sidebar derecha (arriba en móvil) */}
+        <aside className="order-1 h-fit lg:order-2 lg:sticky lg:top-6 print:hidden">
+          <QuotePublicLinkPanel quoteId={id} publicUrl={publicUrl} />
+        </aside>
 
-      <QuoteDocumentShell
-        quoteNumber={quote.quoteNumber}
-        customerName={quote.customerName}
-        mode="preview"
-        isAccepted={quote.status === "APPROVED"}
-        isPaid={isPaid}
-      >
-        <QuoteDocumentView quote={quote} mode="preview" isPaid={isPaid} />
-      </QuoteDocumentShell>
+        {/* Documento */}
+        <div className="order-2 min-w-0 lg:order-1">
+          <p className="mb-4 text-sm text-foreground/55 print:hidden">
+            Así verá el cliente el estimado en la página pública. El contenido es idéntico al enlace compartido.
+          </p>
+          <QuoteDocumentShell
+            quoteNumber={quote.quoteNumber}
+            customerName={quote.customerName}
+            mode="preview"
+            isAccepted={quote.status === "APPROVED"}
+            isPaid={isPaid}
+          >
+            <QuoteDocumentView quote={quote} mode="preview" isPaid={isPaid} />
+          </QuoteDocumentShell>
+        </div>
+      </div>
     </section>
   )
 }
