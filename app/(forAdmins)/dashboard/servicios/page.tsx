@@ -1,10 +1,11 @@
+import Link from "next/link"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { AssignPlanCustomerPropertyFields } from "@/components/ui/AssignPlanCustomerPropertyFields"
+import { AutoCloseDetails } from "@/components/ui/AutoCloseDetails"
 import { EditDialog } from "@/components/ui/EditDialog"
 import { ServiceCatalogPriceDisplay } from "@/components/ui/ServiceCatalogPriceDisplay"
 import { ServiceCatalogPricingFields } from "@/components/ui/ServiceCatalogPricingFields"
-import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
+import { ServiceInfoHint } from "@/components/ui/ServiceInfoHint"
 import { serviceCatalogFieldsProps, serviceCatalogPricingFromForm, serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 
 function parseDecimal(input: FormDataEntryValue | null): number | null {
@@ -30,28 +31,6 @@ function parseIncludes(input: FormDataEntryValue | null): string[] {
 }
 
 export default async function ServiciosAdminPage() {
-  async function createServiceAction(formData: FormData) {
-    "use server"
-    const name = String(formData.get("name") ?? "").trim()
-    const slug = String(formData.get("slug") ?? "").trim()
-    const category = String(formData.get("category") ?? "CORE")
-    if (!name || !slug) return
-    await prisma.serviceCatalog.create({
-      data: {
-        name, slug,
-        category: category as "CORE" | "ADD_ON" | "CLEANUP",
-        description: parseString(formData.get("description")),
-        pricingUnit: parseString(formData.get("pricingUnit")),
-        ...serviceCatalogPricingFromForm(formData),
-        memberDiscount: parseDecimal(formData.get("memberDiscount")),
-        includes: parseIncludes(formData.get("includes")),
-        estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
-        active: formData.get("active") === "on",
-      },
-    })
-    revalidatePath("/dashboard/servicios")
-  }
-
   async function updateServiceAction(formData: FormData) {
     "use server"
     const id = String(formData.get("id") ?? "")
@@ -66,6 +45,7 @@ export default async function ServiciosAdminPage() {
         name, slug,
         category: category as "CORE" | "ADD_ON" | "CLEANUP",
         description: parseString(formData.get("description")),
+        details: parseString(formData.get("details")),
         pricingUnit: parseString(formData.get("pricingUnit")),
         ...serviceCatalogPricingFromForm(formData),
         memberDiscount: parseDecimal(formData.get("memberDiscount")),
@@ -99,29 +79,6 @@ export default async function ServiciosAdminPage() {
     revalidatePath("/dashboard/servicios")
   }
 
-  async function createPlanAction(formData: FormData) {
-    "use server"
-    const name = String(formData.get("name") ?? "").trim()
-    const slug = String(formData.get("slug") ?? "").trim()
-    const tier = String(formData.get("tier") ?? "SMALL")
-    const monthlyPrice = parseDecimal(formData.get("monthlyPrice"))
-    if (!name || !slug || monthlyPrice === null) return
-    await prisma.membershipPlan.create({
-      data: {
-        name, slug,
-        tier: tier as "SMALL" | "MEDIUM" | "LARGE",
-        description: parseString(formData.get("description")),
-        monthlyPrice,
-        visitsPerMonth: Number(formData.get("visitsPerMonth") ?? 4) || 4,
-        addOnDiscount: parseDecimal(formData.get("addOnDiscount")) ?? 0,
-        priorityScheduling: formData.get("priorityScheduling") === "on",
-        benefits: parseIncludes(formData.get("benefits")),
-        active: formData.get("active") === "on",
-      },
-    })
-    revalidatePath("/dashboard/servicios")
-  }
-
   async function updatePlanAction(formData: FormData) {
     "use server"
     const id = String(formData.get("id") ?? "")
@@ -148,49 +105,13 @@ export default async function ServiciosAdminPage() {
     revalidatePath("/dashboard/servicios")
   }
 
-  async function assignPlanAction(formData: FormData) {
-    "use server"
-    const customerId = String(formData.get("customerId") ?? "")
-    const planId = String(formData.get("planId") ?? "")
-    const propertyIdRaw = String(formData.get("propertyId") ?? "").trim()
-    const startWeekRaw = String(formData.get("startWeek") ?? "").trim()
-    const weekday = Number.parseInt(String(formData.get("preferredWeekday") ?? ""), 10)
-    if (!customerId || !planId) return
-    if (startWeekRaw !== "THIS_WEEK" && startWeekRaw !== "NEXT_WEEK") return
-    if (!Number.isFinite(weekday) || weekday < 1 || weekday > 7) return
-
-    await assignMembershipWithSchedule(prisma, {
-      customerId,
-      planId,
-      propertyId: propertyIdRaw || null,
-      startWeek: startWeekRaw,
-      preferredWeekday: weekday,
-      preferredTime: parseString(formData.get("preferredTime")),
-      notes: parseString(formData.get("notes")),
-    })
-    revalidatePath("/dashboard/servicios")
-    revalidatePath("/dashboard/clientes")
-    revalidatePath("/dashboard/scheduling")
-  }
-
-  const [services, plans, customers, activeMemberships] = await Promise.all([
+  const [services, plans, activeMemberships] = await Promise.all([
     prisma.serviceCatalog.findMany({
       orderBy: [{ category: "asc" }, { displayOrder: "asc" }, { name: "asc" }],
     }),
     prisma.membershipPlan.findMany({
       where: { active: true },
       orderBy: [{ tier: "asc" }, { monthlyPrice: "asc" }],
-    }),
-    prisma.customer.findMany({
-      where: { isActive: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      take: 300,
-      include: {
-        properties: {
-          orderBy: { createdAt: "asc" },
-          select: { id: true, label: true, street: true, city: true },
-        },
-      },
     }),
     prisma.customerMembership.findMany({
       where: { status: "ACTIVE" },
@@ -203,25 +124,12 @@ export default async function ServiciosAdminPage() {
     }),
   ])
 
-  const assignPlanCustomers = customers.map((c) => ({
-    id: c.id,
-    firstName: c.firstName,
-    lastName: c.lastName,
-    properties: c.properties.map((p) => ({
-      id: p.id,
-      label: p.label,
-      street: p.street,
-      city: p.city,
-    })),
-  }))
-
   const coreServices = services.filter((s) => s.category === "CORE")
   const addOnServices = services.filter((s) => s.category === "ADD_ON")
   const cleanupServices = services.filter((s) => s.category === "CLEANUP")
   const lawnBase = services.find((s) => s.slug === "lawn-maintenance")
 
   const ic = "rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent"
-  const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
   const statusBadge = (active: boolean) =>
     `shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
@@ -232,6 +140,7 @@ export default async function ServiciosAdminPage() {
 
   return (
     <section className="mx-auto max-w-7xl text-foreground">
+      <AutoCloseDetails />
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -314,10 +223,21 @@ export default async function ServiciosAdminPage() {
 
       {/* ── SERVICE CATALOG ────────────────────────────────────── */}
       <div className="mt-10">
-        <h2 className="font-display text-2xl font-semibold">Catálogo de servicios</h2>
-        <p className="mt-1 text-sm text-foreground/50">
-          {services.filter((s) => s.active).length} activos · {services.length} total
-        </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-2xl font-semibold">Catálogo de servicios</h2>
+            <p className="mt-1 text-sm text-foreground/50">
+              {services.filter((s) => s.active).length} activos · {services.length} total
+            </p>
+          </div>
+          <Link
+            href="/dashboard/servicios/administrar"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90"
+          >
+            <span className="text-base leading-none">+</span>
+            Administrar catálogo
+          </Link>
+        </div>
 
         {/* CORE */}
         {coreServices.length > 0 && (
@@ -339,6 +259,7 @@ export default async function ServiciosAdminPage() {
                           <h3 className="font-display text-lg font-semibold leading-snug">
                             {service.name}
                           </h3>
+                          {service.details && <ServiceInfoHint text={service.details} />}
                           <span className={statusBadge(service.active)}>
                             {service.active ? "Activo" : "Inactivo"}
                           </span>
@@ -347,7 +268,7 @@ export default async function ServiciosAdminPage() {
                           <p className="mt-0.5 text-sm text-foreground/50">{service.description}</p>
                         )}
                       </div>
-                      <details className="relative shrink-0">
+                      <details data-autoclose className="relative shrink-0">
                         <summary className="cursor-pointer list-none rounded-md border border-foreground/15 px-2 py-1 text-sm transition hover:bg-foreground/8">
                           ···
                         </summary>
@@ -425,6 +346,10 @@ export default async function ServiciosAdminPage() {
                             <input name="description" defaultValue={service.description ?? ""} className={ic} />
                           </label>
                           <label className="grid gap-1 md:col-span-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Detalle (icono i)</span>
+                            <textarea name="details" rows={3} defaultValue={service.details ?? ""} placeholder="Explicación completa que se muestra al tocar el icono (i)" className={ic} />
+                          </label>
+                          <label className="grid gap-1 md:col-span-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Incluye (uno por línea)</span>
                             <textarea name="includes" rows={3} defaultValue={inc.join("\n")} className={ic} />
                           </label>
@@ -465,6 +390,7 @@ export default async function ServiciosAdminPage() {
                           <h3 className="font-display text-lg font-semibold leading-snug">
                             {service.name}
                           </h3>
+                          {service.details && <ServiceInfoHint text={service.details} />}
                           <span className={statusBadge(service.active)}>
                             {service.active ? "Activo" : "Inactivo"}
                           </span>
@@ -473,7 +399,7 @@ export default async function ServiciosAdminPage() {
                           <p className="mt-0.5 text-sm text-foreground/50">{service.description}</p>
                         )}
                       </div>
-                      <details className="relative shrink-0">
+                      <details data-autoclose className="relative shrink-0">
                         <summary className="cursor-pointer list-none rounded-md border border-foreground/15 px-2 py-1 text-sm transition hover:bg-foreground/8">
                           ···
                         </summary>
@@ -551,6 +477,10 @@ export default async function ServiciosAdminPage() {
                             <input name="description" defaultValue={service.description ?? ""} className={ic} />
                           </label>
                           <label className="grid gap-1 md:col-span-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Detalle (icono i)</span>
+                            <textarea name="details" rows={3} defaultValue={service.details ?? ""} placeholder="Explicación completa que se muestra al tocar el icono (i)" className={ic} />
+                          </label>
+                          <label className="grid gap-1 md:col-span-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Incluye (uno por línea)</span>
                             <textarea name="includes" rows={3} defaultValue={inc.join("\n")} className={ic} />
                           </label>
@@ -585,12 +515,15 @@ export default async function ServiciosAdminPage() {
                 <article key={service.id} className="rounded-xl border border-foreground/12 bg-white/50 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="font-semibold">{service.name}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-semibold">{service.name}</h3>
+                        {service.details && <ServiceInfoHint text={service.details} />}
+                      </div>
                       <span className={`mt-1 inline-block ${statusBadge(service.active)}`}>
                         {service.active ? "Activo" : "Inactivo"}
                       </span>
                     </div>
-                    <details className="relative shrink-0">
+                    <details data-autoclose className="relative shrink-0">
                       <summary className="cursor-pointer list-none rounded-md border border-foreground/15 px-1.5 py-0.5 text-xs transition hover:bg-foreground/8">
                         ···
                       </summary>
@@ -658,6 +591,10 @@ export default async function ServiciosAdminPage() {
                         <label className="grid gap-1">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Descripción</span>
                           <input name="description" defaultValue={service.description ?? ""} className={ic} />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Detalle (icono i)</span>
+                          <textarea name="details" rows={3} defaultValue={service.details ?? ""} placeholder="Explicación completa que se muestra al tocar el icono (i)" className={ic} />
                         </label>
                         <label className="flex items-center gap-2 text-sm text-foreground/65">
                           <input type="checkbox" name="active" defaultChecked={service.active} />
@@ -805,126 +742,6 @@ export default async function ServiciosAdminPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* ── ADMIN FORMS ────────────────────────────────────────── */}
-      <div className="mt-10 border-t border-foreground/10 pt-8">
-        <details>
-          <summary className="inline-flex cursor-pointer select-none items-center gap-3 rounded-lg border border-foreground/15 px-4 py-2.5 text-sm font-semibold text-foreground/60 transition hover:bg-foreground/5">
-            Administrar catálogo
-            <span className="text-xs font-normal text-foreground/35">agregar servicios · planes · asignaciones</span>
-          </summary>
-
-          <div className="mt-5 grid gap-6 xl:grid-cols-3">
-            <section className="rounded-xl border border-foreground/10 bg-background p-5 xl:col-span-2">
-              <h3 className="font-display text-lg font-semibold">Nuevo servicio o add-on</h3>
-              <form action={createServiceAction} className="mt-4 grid gap-3 md:grid-cols-2">
-                <input name="name" required placeholder="Service name" className={ic} />
-                <input name="slug" required placeholder="slug-ejemplo" className={ic} />
-                <select name="category" className={ic}>
-                  <option value="CORE">Core</option>
-                  <option value="ADD_ON">Add-on</option>
-                  <option value="CLEANUP">Cleanup</option>
-                </select>
-                <input name="pricingUnit" placeholder="per visit" className={`${ic} md:col-span-2`} />
-                <ServiceCatalogPricingFields />
-                <input name="memberDiscount" type="number" min="0" step="0.01" placeholder="Member discount %" className={ic} />
-                <input name="estimatedMinutes" type="number" min="0" step="1" placeholder="Estimated minutes" className={ic} />
-                <input name="description" placeholder="Description" className={`${ic} md:col-span-2`} />
-                <textarea name="includes" rows={4} placeholder={"Includes (one per line)\nMowing\nTrimming\nBlower cleanup"} className={`${ic} md:col-span-2`} />
-                <label className="flex items-center gap-2 text-sm text-foreground/65 md:col-span-2">
-                  <input type="checkbox" name="active" defaultChecked />
-                  Active
-                </label>
-                <button type="submit" className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90 md:col-span-2">
-                  Guardar servicio
-                </button>
-              </form>
-            </section>
-
-            <section className="rounded-xl border border-foreground/10 bg-background p-5">
-              <h3 className="font-display text-lg font-semibold">Nuevo plan</h3>
-              <form action={createPlanAction} className="mt-4 grid gap-3">
-                <input name="name" required placeholder="Plan name" className={ic} />
-                <input name="slug" required placeholder="plan-slug" className={ic} />
-                <select name="tier" className={ic}>
-                  <option value="SMALL">Small</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="LARGE">Large</option>
-                </select>
-                <input name="monthlyPrice" required type="number" min="0" step="0.01" placeholder="Monthly price" className={ic} />
-                <input name="visitsPerMonth" type="number" min="1" step="1" defaultValue={4} className={ic} />
-                <input name="addOnDiscount" type="number" min="0" step="0.01" defaultValue={15} placeholder="Add-on discount %" className={ic} />
-                <input name="description" placeholder="Description" className={ic} />
-                <textarea name="benefits" rows={4} placeholder={"Benefits (one per line)\nWeekly service\nPriority scheduling\n15% add-on discount"} className={ic} />
-                <label className="flex items-center gap-2 text-sm text-foreground/65">
-                  <input type="checkbox" name="priorityScheduling" defaultChecked />
-                  Priority scheduling
-                </label>
-                <label className="flex items-center gap-2 text-sm text-foreground/65">
-                  <input type="checkbox" name="active" defaultChecked />
-                  Active
-                </label>
-                <button type="submit" className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90">
-                  Guardar plan
-                </button>
-              </form>
-            </section>
-          </div>
-
-          <section className="mt-4 rounded-xl border border-foreground/10 bg-background p-5">
-            <h3 className="font-display text-lg font-semibold">Asignar plan a cliente</h3>
-            <p className="mt-1 text-sm text-foreground/50">Define el plan y horario preferido del cliente.</p>
-            <form action={assignPlanAction} className="mt-4 grid gap-3 md:grid-cols-2">
-              <AssignPlanCustomerPropertyFields customers={assignPlanCustomers} ic={ic} lbl={lbl} />
-              <select name="planId" required className={`${ic} md:col-span-2`}>
-                <option value="">Select plan</option>
-                {plans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name} (${plan.monthlyPrice.toString()}/mo)
-                  </option>
-                ))}
-              </select>
-              <label className="grid gap-1">
-                <span className={lbl}>Primera semana</span>
-                <select name="startWeek" required className={ic}>
-                  <option value="THIS_WEEK">Esta semana</option>
-                  <option value="NEXT_WEEK">Próxima semana</option>
-                </select>
-              </label>
-              <label className="grid gap-1">
-                <span className={lbl}>Día de visita (semanal)</span>
-                <select name="preferredWeekday" required className={ic} defaultValue="2">
-                  <option value="1">Lunes</option>
-                  <option value="2">Martes</option>
-                  <option value="3">Miércoles</option>
-                  <option value="4">Jueves</option>
-                  <option value="5">Viernes</option>
-                  <option value="6">Sábado</option>
-                  <option value="7">Domingo</option>
-                </select>
-              </label>
-              <label className="grid gap-1 md:col-span-2">
-                <span className={lbl}>Hora</span>
-                <input name="preferredTime" placeholder="Ej. 9:00 o 2:30 PM" className={ic} />
-              </label>
-              <label className="grid gap-1 md:col-span-2">
-                <span className={lbl}>Notas</span>
-                <input name="notes" placeholder="Notes" className={ic} />
-              </label>
-              <p className="text-xs text-foreground/50 md:col-span-2">
-                Si el cliente tiene varias direcciones, elige en cuál programar las visitas. Con una sola dirección se
-                usa automáticamente. Las visitas se crean en Scheduling (una por semana según el plan).
-              </p>
-              <button
-                type="submit"
-                className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90 md:col-span-2"
-              >
-                Asignar plan
-              </button>
-            </form>
-          </section>
-        </details>
       </div>
 
     </section>

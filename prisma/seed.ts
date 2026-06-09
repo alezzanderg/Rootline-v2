@@ -6,6 +6,8 @@ async function main() {
       slug: "lawn-maintenance",
       name: "Lawn Maintenance",
       description: "Servicio Principal",
+      details:
+        "Nuestro servicio principal de mantenimiento de césped, pensado para visitas recurrentes. Cada visita incluye corte (mowing) a la altura ideal según la temporada, recorte de orillas y bordes (trimming) alrededor de banquetas, cercas y obstáculos, y limpieza final con soplador (blower) de banquetas, entrada y patio. Mantiene el jardín ordenado y saludable de forma constante.",
       category: "CORE" as const,
       includes: ["Mowing", "Trimming", "Blower cleanup"],
       pricingUnit: "per visit",
@@ -26,6 +28,8 @@ async function main() {
       slug: "clean-cut",
       name: "Clean Cut",
       description: "Upgrade Premium",
+      details:
+        "Versión premium del corte. Incluye todo lo del mantenimiento básico (corte, recorte y limpieza con soplador) y además bordes definidos con orilladora para un contorno marcado y limpio, junto con un acabado profesional con mayor atención al detalle. Recomendado para clientes que quieren el jardín siempre impecable.",
       category: "CORE" as const,
       includes: ["Todo lo anterior", "Bordes definidos", "Acabado pro"],
       pricingUnit: "per visit",
@@ -46,6 +50,8 @@ async function main() {
       slug: "yard-cleanup",
       name: "Light Yard Cleanup",
       description: "Trabajos Extra",
+      details:
+        "Limpieza general del patio para ponerlo al día. Incluye recolección de hojas, rastrillado (rake) y soplado de áreas, y limpieza básica de desechos ligeros. El precio varía según el tamaño del jardín y la cantidad de material acumulado, por eso se cotiza en un rango (desde / hasta).",
       category: "CLEANUP" as const,
       includes: ["Hojas", "Rake + Blower", "Limpieza basica"],
       startingAtPrice: 120,
@@ -61,6 +67,8 @@ async function main() {
       slug: "addon-overgrown-grass",
       name: "Overgrown grass",
       description: "Add-on",
+      details:
+        "Cargo adicional cuando el césped está demasiado crecido, por falta de mantenimiento o una ausencia prolongada. Requiere pasadas extra, más tiempo de trabajo y mayor desgaste del equipo. Se cobra como complemento sobre el servicio de corte.",
       category: "ADD_ON" as const,
       startingAtPrice: 20,
       maxRangePrice: 50,
@@ -75,6 +83,8 @@ async function main() {
       slug: "addon-bush-trimming",
       name: "Bush trimming",
       description: "Add-on",
+      details:
+        "Recorte y dado de forma a arbustos y setos. Incluye poda ligera para controlar el tamaño y mantener la forma, además de la limpieza de los recortes generados. Se agrega como complemento al servicio principal.",
       category: "ADD_ON" as const,
       startingAtPrice: 30,
       maxRangePrice: 80,
@@ -89,6 +99,8 @@ async function main() {
       slug: "addon-bagging",
       name: "Bagging",
       description: "Add-on",
+      details:
+        "Embolsado y retiro del césped cortado y los recortes, en lugar de dejarlos triturados (mulched) sobre el jardín. Útil cuando se acumula mucho material o el cliente prefiere el patio sin restos visibles.",
       category: "ADD_ON" as const,
       startingAtPrice: 10,
       maxRangePrice: 25,
@@ -103,6 +115,8 @@ async function main() {
       slug: "addon-debris-removal",
       name: "Debris removal",
       description: "Add-on",
+      details:
+        "Retiro y disposición de desechos del jardín: ramas, hojas acumuladas, basura y escombros ligeros. Se cobra según el volumen de material a retirar y se agrega como complemento al servicio.",
       category: "ADD_ON" as const,
       startingAtPrice: 20,
       maxRangePrice: 60,
@@ -121,6 +135,7 @@ async function main() {
       update: {
         name: service.name,
         description: service.description,
+        details: service.details ?? null,
         category: service.category,
         includes: service.includes,
         pricingUnit: service.pricingUnit ?? null,
@@ -146,6 +161,7 @@ async function main() {
         slug: service.slug,
         name: service.name,
         description: service.description,
+        details: service.details ?? null,
         category: service.category,
         includes: service.includes,
         pricingUnit: service.pricingUnit ?? null,

@@ -166,6 +166,8 @@ model ServiceCatalog {
   slug             String   @unique
   name             String
   description      String?
+  /** Longer explanation shown behind the (i) info icon in the admin catalog */
+  details          String?
   category         ServiceCategory @default(CORE)
   /** How this service is priced: by frequency+size, size only, or frequency only */
   pricingMode      ServicePricingMode @default(FREQ_AND_TIER)

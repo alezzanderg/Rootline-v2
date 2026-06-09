@@ -45,30 +45,33 @@ export function AssignPlanCustomerPropertyFields({
         </select>
       </label>
 
-      {selected && selected.properties.length > 1 ? (
+      {selected && selected.properties.length >= 1 ? (
         <label key={`${selected.id}-prop-wrap`} className="grid gap-1 md:col-span-2">
-          <span className={lbl}>Propiedad a programar</span>
+          <span className={lbl}>Propiedad donde aplica el plan</span>
           <select
             key={`${selected.id}-propertyId`}
             name="propertyId"
             required
             className={ic}
-            defaultValue=""
+            defaultValue={selected.properties.length === 1 ? selected.properties[0].id : ""}
           >
-            <option value="" disabled>
-              Selecciona una propiedad…
-            </option>
+            {selected.properties.length > 1 ? (
+              <option value="" disabled>
+                Selecciona una propiedad…
+              </option>
+            ) : null}
             {selected.properties.map((p) => (
               <option key={p.id} value={p.id}>
                 {(p.label ? `${p.label} · ` : "") + `${p.street}, ${p.city}`}
               </option>
             ))}
           </select>
+          <span className="text-[11px] text-foreground/45">
+            {selected.properties.length > 1
+              ? "El cliente tiene varias direcciones: el plan y sus visitas se crean solo para la propiedad elegida."
+              : "El plan y sus visitas se crean solo para esta propiedad."}
+          </span>
         </label>
-      ) : null}
-
-      {selected && selected.properties.length === 1 ? (
-        <input type="hidden" name="propertyId" value={selected.properties[0].id} />
       ) : null}
 
       {selected && selected.properties.length === 0 ? (
