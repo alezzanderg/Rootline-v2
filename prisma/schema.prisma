@@ -403,12 +403,22 @@ model Tool {
   id               String          @id @default(uuid())
   name             String
   category         String?
+  brand            String?
+  model            String?
+  sku              String?
   serialNumber     String?         @unique
   status           EquipmentStatus @default(AVAILABLE)
+  fuelType         String?
+  engine           String?
   purchaseDate     DateTime?
+  purchasePrice    Decimal?        @db.Decimal(10, 2)
+  purchaseUrl      String?
   lastMaintenance  DateTime?
   nextMaintenance  DateTime?
+  maintenanceFrequency String?
   maintenanceNotes String?
+  /** Flexible spec sheet: array of { label, value } pairs (tool-specific) */
+  specs            Json?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 }
