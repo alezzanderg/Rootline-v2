@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ["lucide-react"],
+    // Receipts are stored as compressed base64 data URLs (temporary; Cloudflare R2 planned).
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
   },
   images: {
     formats: ["image/avif", "image/webp"],

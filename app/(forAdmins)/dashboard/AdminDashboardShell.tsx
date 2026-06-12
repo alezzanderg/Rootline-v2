@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Inbox,
   LayoutDashboard,
+  Landmark,
   Menu,
   Package,
   Settings,
@@ -88,6 +89,7 @@ export default function AdminDashboardShell({
     { href: "/dashboard/servicios", label: "Lista de servicios", icon: BriefcaseBusiness },
     { href: "/dashboard/productos", label: "Productos", icon: Package },
     { href: "/dashboard/herramientas", label: "Herramientas", icon: Wrench },
+    { href: "/dashboard/operating", label: "Operating", icon: Landmark },
     { href: "/dashboard/empleados", label: "Empleados y roles", icon: FolderOpen },
     { href: "/dashboard/configuracion", label: "Configuracion", icon: Settings },
   ] as const

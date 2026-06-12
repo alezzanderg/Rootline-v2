@@ -80,6 +80,54 @@ enum ServicePricingMode {
   FREQ_ONLY
 }
 
+enum OperatingTxnType {
+  CAPITAL_CONTRIBUTION
+  PARTNER_LOAN
+  PARTNER_REIMBURSEMENT
+  COMPANY_EXPENSE
+  PROJECT_EXPENSE
+}
+
+model Partner {
+  id           String   @id @default(uuid())
+  name         String
+  email        String?
+  phone        String?
+  ownershipPct Decimal? @db.Decimal(5, 2)
+  active       Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions OperatingTransaction[]
+}
+
+model OperatingTransaction {
+  id            String           @id @default(uuid())
+  type          OperatingTxnType
+  amount        Decimal          @db.Decimal(12, 2)
+  occurredAt    DateTime         @default(now())
+  description   String?
+  category      String?
+  vendor        String?
+  invoiceNumber String?
+  receiptUrl    String?
+  partnerId     String?
+  jobId         String?
+  quoteId       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  partner Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  job     Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  quote   Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  @@index([type, occurredAt])
+  @@index([partnerId])
+  @@index([jobId])
+  @@index([quoteId])
+}
+
 enum MembershipStatus {
   ACTIVE
   PAUSED
@@ -276,6 +324,7 @@ model Quote {
   property Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   items    QuoteItem[]
   jobs     Job[]
+  operatingExpenses OperatingTransaction[]
 }
 
 model QuoteItem {
@@ -324,6 +373,7 @@ model Job {
   quote       Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   assignments JobAssignment[]
   items       JobItem[]
+  operatingExpenses OperatingTransaction[]
 }
 
 model JobAssignment {
