@@ -41,7 +41,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     const firstName = titleCase(parseStr(formData.get("firstName")))
     const lastName = titleCase(parseStr(formData.get("lastName")))
     const phone = parsePhoneRequired(formData.get("phone"))
-    if (!firstName || !lastName || !phone) return
+    if (!firstName || !phone) return
     const rawNotes = parseOptStr(formData.get("notes"))
     await prisma.customer.create({
       data: {
@@ -156,8 +156,8 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
               <input name="firstName" required placeholder="John" className={ic} />
             </label>
             <label className="grid gap-1">
-              <span className={lbl}>Apellido</span>
-              <input name="lastName" required placeholder="Doe" className={ic} />
+              <span className={lbl}>Apellido (opcional)</span>
+              <input name="lastName" placeholder="Doe" className={ic} />
             </label>
             <label className="grid gap-1">
               <span className={lbl}>Teléfono</span>
@@ -252,8 +252,14 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                           href={`/dashboard/clientes/${c.id}`}
                           className="font-semibold hover:text-accent"
                         >
-                          {c.firstName} {c.lastName}
+                          {c.firstName}
+                          {c.lastName ? ` ${c.lastName}` : ""}
                         </Link>
+                        {!c.lastName?.trim() && (
+                          <span className="ml-2 inline-flex rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                            Falta apellido
+                          </span>
+                        )}
                         {c.difficulty && (
                           <p
                             className={`mt-0.5 text-[10px] font-bold uppercase tracking-wider ${DIFFICULTY_COLOR[c.difficulty] ?? ""}`}

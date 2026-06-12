@@ -78,7 +78,7 @@ export default async function CustomerDetailPage({
     const firstName = titleCase(parseStr(formData.get("firstName")))
     const lastName = titleCase(parseStr(formData.get("lastName")))
     const phone = parsePhoneRequired(formData.get("phone"))
-    if (!cId || !firstName || !lastName || !phone) return
+    if (!cId || !firstName || !phone) return
     const rawNotes = parseOptStr(formData.get("notes"))
     await prisma.customer.update({
       where: { id: cId },
@@ -296,8 +296,14 @@ export default async function CustomerDetailPage({
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-semibold sm:text-4xl">
-            {customer.firstName} {customer.lastName}
+            {customer.firstName}
+            {customer.lastName ? ` ${customer.lastName}` : ""}
           </h1>
+          {!customer.lastName?.trim() && (
+            <span className="mt-1 inline-flex rounded-full border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+              Falta apellido — pedir y completar
+            </span>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-foreground/60">
             <span
               className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
@@ -319,7 +325,7 @@ export default async function CustomerDetailPage({
             {customer.email && <span>{customer.email}</span>}
           </div>
           {customer.notes && (
-            <p className="mt-1.5 text-sm text-foreground/45 italic">"{customer.notes}"</p>
+            <p className="mt-1.5 text-sm text-foreground/45 italic">&ldquo;{customer.notes}&rdquo;</p>
           )}
         </div>
 
@@ -336,8 +342,8 @@ export default async function CustomerDetailPage({
                 <input name="firstName" defaultValue={customer.firstName} required className={ic} />
               </label>
               <label className="grid gap-1">
-                <span className={lbl}>Apellido</span>
-                <input name="lastName" defaultValue={customer.lastName} required className={ic} />
+                <span className={lbl}>Apellido (opcional)</span>
+                <input name="lastName" defaultValue={customer.lastName} className={ic} />
               </label>
               <label className="grid gap-1">
                 <span className={lbl}>Teléfono</span>

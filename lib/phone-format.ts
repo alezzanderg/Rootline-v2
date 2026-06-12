@@ -1,6 +1,9 @@
-/** Strip to up to 10 US digits. */
+/** Strip to up to 10 US digits, dropping a leading US country code "1". */
 export function phoneDigitsOnly(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 10)
+  let digits = value.replace(/\D/g, "")
+  // 11 digits starting with 1 → drop the country code (e.g. 1 (917) 301-5606).
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1)
+  return digits.slice(0, 10)
 }
 
 /** Format as (xxx) xxx-xxxx while typing. */

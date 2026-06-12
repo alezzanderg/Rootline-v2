@@ -32,7 +32,8 @@ export function PhoneInput({
       className={className}
       inputMode="tel"
       autoComplete="tel"
-      maxLength={14}
+      pattern="\(\d{3}\) \d{3}-\d{4}"
+      title="Ingresa un teléfono de 10 dígitos, ej. (551) 333-5296"
       aria-label="Teléfono"
     />
   )
