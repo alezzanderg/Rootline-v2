@@ -9,6 +9,7 @@ import {
 import { isQuotePaymentComplete } from "@/lib/payments/status"
 import { getQuotePaymentMethodPublicLabel } from "@/lib/payments/methods"
 import { getQuoteDocumentTitle } from "@/lib/quote-document-format"
+import { QuoteOptionsSelector } from "@/components/quotes/QuoteOptionsSelector"
 import { businessInfo } from "@/lib/services-data"
 
 type QuoteDocumentViewProps = {
@@ -25,6 +26,15 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
   const documentTitle = getQuoteDocumentTitle(isPaid)
   const documentDate = isPaid && quote.paidAt ? quote.paidAt : quote.createdAt
   const documentDateLabel = isPaid ? "Invoice date" : "Date"
+
+  // Estimate Options: required (due-today) lines go in the table; options/add-ons
+  // are presented in a selector; recurring shows separately as ongoing billing.
+  const tableItems = quote.items.filter((i) => i.lineType === "REQUIRED" && !i.isRecurring)
+  const hasOptions = quote.items.some((i) => i.lineType !== "REQUIRED") || quote.optionGroups.length > 0
+  const recurring = quote.recurring
+  const interactive = mode === "public" && quote.status === "SENT" && !isPaid
+  // Once accepted/paid the selection is locked; the document shows only chosen options.
+  const lockedSelection = isAccepted || isPaid
 
   return (
     <div className="quote-document-view-root mx-auto w-full max-w-3xl">
@@ -109,33 +119,38 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
             </div>
           )}
 
-          <div className="mt-8 overflow-hidden rounded-xl border border-foreground/10">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-foreground/10 bg-foreground/4 text-left">
-                  <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
-                    Service
-                  </th>
-                  <th className="quote-print-col hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-foreground/45 sm:table-cell">
-                    Qty
-                  </th>
-                  <th className="quote-print-col hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-foreground/45 md:table-cell">
-                    Unit
-                  </th>
-                  <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
-                    Amount
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {quote.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-foreground/45">
-                      No line items on this {documentTitle.toLowerCase()} yet.
-                    </td>
+          {hasOptions && !lockedSelection ? (
+            <div className="mt-6 rounded-xl border border-forest/15 bg-forest/4 px-4 py-3">
+              <p className="text-sm leading-relaxed text-foreground/70">
+                This estimate includes the initial first cut only. After the initial service is completed, weekly lawn
+                maintenance will begin the following week. Please select one ongoing maintenance plan below. The 4-week
+                prepaid cycle is billed in advance and includes 4 weekly visits. Weekly payment is available at a higher
+                per-visit rate.
+              </p>
+            </div>
+          ) : null}
+
+          {tableItems.length > 0 ? (
+            <div className="mt-6 overflow-hidden rounded-xl border border-foreground/10">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-foreground/10 bg-foreground/4 text-left">
+                    <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
+                      {hasOptions ? "Required service" : "Service"}
+                    </th>
+                    <th className="quote-print-col hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-foreground/45 sm:table-cell">
+                      Qty
+                    </th>
+                    <th className="quote-print-col hidden px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-foreground/45 md:table-cell">
+                      Unit
+                    </th>
+                    <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
+                      Amount
+                    </th>
                   </tr>
-                ) : (
-                  quote.items.map((item) => (
+                </thead>
+                <tbody>
+                  {tableItems.map((item) => (
                     <tr key={item.id} className="border-b border-foreground/8 last:border-b-0">
                       <td className="px-4 py-3 align-top">
                         <div className="flex flex-wrap items-center gap-2">
@@ -150,9 +165,7 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
                             {item.categoryLabel}
                           </span>
                         </div>
-                        {item.description ? (
-                          <p className="mt-1 text-xs text-foreground/50">{item.description}</p>
-                        ) : null}
+                        {item.description ? <p className="mt-1 text-xs text-foreground/50">{item.description}</p> : null}
                         <p className="quote-screen-only mt-1 text-xs text-foreground/40 sm:hidden">
                           {item.quantity}
                           {item.pricingUnit ? ` ${item.pricingUnit}` : ""} × {fmtMoney(item.unitPrice)}
@@ -160,9 +173,7 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
                       </td>
                       <td className="quote-print-col hidden px-4 py-3 text-right tabular-nums text-foreground/70 sm:table-cell">
                         {item.quantity}
-                        {item.pricingUnit ? (
-                          <span className="block text-[10px] text-foreground/40">{item.pricingUnit}</span>
-                        ) : null}
+                        {item.pricingUnit ? <span className="block text-[10px] text-foreground/40">{item.pricingUnit}</span> : null}
                       </td>
                       <td className="quote-print-col hidden px-4 py-3 text-right tabular-nums text-foreground/70 md:table-cell">
                         {fmtMoney(item.unitPrice)}
@@ -171,11 +182,26 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
                         {fmtMoney(item.lineTotal)}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : quote.items.length === 0 ? (
+            <p className="mt-6 rounded-xl border border-foreground/10 px-4 py-10 text-center text-foreground/45">
+              No line items on this {documentTitle.toLowerCase()} yet.
+            </p>
+          ) : null}
+
+          {hasOptions ? (
+            <QuoteOptionsSelector
+              quoteId={quote.id}
+              interactive={interactive}
+              showUnselected={!lockedSelection}
+              groups={quote.optionGroups}
+              items={quote.items}
+              taxRatePercent={quote.taxRatePercent}
+            />
+          ) : null}
 
           <div className="mt-6 flex justify-end">
             <div className="w-full max-w-xs space-y-2 text-sm">
@@ -188,11 +214,55 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
                 <span className="tabular-nums">{fmtMoney(quote.tax)}</span>
               </div>
               <div className="flex items-center justify-between border-t border-foreground/12 pt-2 font-display text-lg font-semibold text-forest">
-                <span>Total</span>
+                <span>Total due today</span>
                 <span className="tabular-nums">{fmtMoney(quote.total)}</span>
               </div>
             </div>
           </div>
+
+          {recurring.length > 0 ? (
+            <div className="mt-6 rounded-xl border border-amber-400/30 bg-amber-50/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-800/70">
+                Selected recurring plan — ongoing service
+              </p>
+              <div className="mt-3 space-y-3">
+                {recurring.map((r, i) => (
+                  <div key={i} className="border-t border-amber-400/20 pt-3 first:border-t-0 first:pt-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="flex flex-wrap items-center gap-2 font-medium text-foreground">
+                        {r.name}
+                        {r.recommended ? (
+                          <span className="rounded-full border border-emerald-400/40 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                            {r.badgeLabel || "Recommended"}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="font-display text-base font-bold tabular-nums text-amber-800">
+                        {fmtMoney(r.total)} {r.intervalLabel}
+                      </span>
+                    </div>
+                    {r.description ? <p className="mt-0.5 text-xs text-foreground/55">{r.description}</p> : null}
+                    <p className="mt-0.5 text-[11px] text-foreground/45">
+                      Subtotal {fmtMoney(r.subtotal)} · Tax {fmtMoney(r.tax)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-amber-800/70">
+                Billed in advance before each cycle, starting after the first service is completed. Not part of the total
+                due today{quote.collectFirstCycleNow ? " — except the first cycle, which is included in today's total" : ""}.
+              </p>
+            </div>
+          ) : null}
+
+          {hasOptions && !lockedSelection ? (
+            <div className="mt-4 rounded-xl border border-foreground/10 bg-foreground/3 px-4 py-3">
+              <p className="text-xs leading-relaxed text-foreground/70">
+                By accepting this estimate, the customer approves the initial first cut and the selected ongoing
+                maintenance plan. Recurring service will begin after the first cut is completed.
+              </p>
+            </div>
+          ) : null}
 
           {quote.notes ? (
             <div className="mt-8 rounded-xl border border-foreground/10 bg-foreground/3 px-4 py-3">

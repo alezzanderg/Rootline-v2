@@ -87,18 +87,20 @@ export default async function PublicQuotePage({ params, searchParams }: Props) {
         termsAndConditions={termsAndConditions}
       />
 
-      <QuotePaymentPanel
-        total={quote.total}
-        isAccepted={quote.status === "APPROVED"}
-        mercuryPaySlug={quote.mercuryInvoiceSlug}
-        mercuryInvoiceStatus={quote.mercuryInvoiceStatus}
-        stripeCheckoutUrl={quote.stripeCheckoutUrl}
-        stripePaymentStatus={quote.stripePaymentStatus}
-        paidAt={quote.paidAt?.toISOString() ?? null}
-        paymentMethod={quote.paymentMethod}
-        paymentReturnStatus={paymentReturnStatus}
-        stripeVerify={stripeVerify}
-      />
+      {quote.paymentsEnabled || isPaid ? (
+        <QuotePaymentPanel
+          total={quote.total}
+          isAccepted={quote.status === "APPROVED"}
+          mercuryPaySlug={quote.mercuryInvoiceSlug}
+          mercuryInvoiceStatus={quote.mercuryInvoiceStatus}
+          stripeCheckoutUrl={quote.stripeCheckoutUrl}
+          stripePaymentStatus={quote.stripePaymentStatus}
+          paidAt={quote.paidAt?.toISOString() ?? null}
+          paymentMethod={quote.paymentMethod}
+          paymentReturnStatus={paymentReturnStatus}
+          stripeVerify={stripeVerify}
+        />
+      ) : null}
     </main>
   )
 }

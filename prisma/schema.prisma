@@ -80,6 +80,25 @@ enum ServicePricingMode {
   FREQ_ONLY
 }
 
+enum QuoteLineType {
+  REQUIRED
+  OPTION
+  ADDON
+}
+
+enum QuoteSelectionType {
+  SINGLE_SELECT
+  MULTI_SELECT
+}
+
+enum QuoteRecurringInterval {
+  WEEKLY
+  EVERY_4_WEEKS
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
 enum OperatingTxnType {
   CAPITAL_CONTRIBUTION
   PARTNER_LOAN
@@ -259,10 +278,13 @@ model MembershipPlan {
   priorityScheduling Boolean @default(true)
   benefits          Json?
   active            Boolean  @default(true)
+  /** One-off plan created for a specific quote/customer; hidden from the general catalog */
+  isCustom          Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  customers CustomerMembership[]
+  customers  CustomerMembership[]
+  quoteItems QuoteItem[]
 }
 
 model CustomerMembership {
@@ -313,6 +335,14 @@ model Quote {
   paidAt               DateTime?
   paymentMethod        QuotePaymentMethod?
   paymentNote          String?
+  /** When false, the public estimate hides online checkout from the customer */
+  paymentsEnabled      Boolean   @default(true)
+  /** Set once a recurring membership line on this quote has been auto-assigned */
+  membershipAssignedAt DateTime?
+  /** Include the first recurring cycle in the "total due now" instead of only later */
+  collectFirstCycleNow Boolean   @default(false)
+  /** Immutable snapshot of selected items/options/totals captured at acceptance */
+  acceptanceSnapshot   Json?
   /** Stripe Checkout — card payments without Mercury AR subscription */
   stripeCheckoutSessionId String? @unique
   stripeCheckoutUrl       String?
@@ -323,21 +353,66 @@ model Quote {
   customer Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
   property Property?  @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   items    QuoteItem[]
+  optionGroups QuoteOptionGroup[]
   jobs     Job[]
   operatingExpenses OperatingTransaction[]
+}
+
+model QuoteOptionGroup {
+  id            String             @id @default(uuid())
+  quoteId       String
+  title         String
+  description   String?
+  selectionType QuoteSelectionType @default(SINGLE_SELECT)
+  required      Boolean            @default(true)
+  sortOrder     Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  quote Quote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  items QuoteItem[]
+
+  @@index([quoteId])
 }
 
 model QuoteItem {
   id          String   @id @default(uuid())
   quoteId     String
-  serviceId   String
+  serviceId   String?
+  planId      String?
+  /** Snapshot label for plan/custom lines (when there is no service) */
+  name        String?
+  /** REQUIRED (always charged), OPTION (one per choice group), or ADDON (optional) */
+  lineType    QuoteLineType @default(REQUIRED)
+  optionGroupId String?
+  /** Whether this option/add-on is currently selected (REQUIRED is always treated as selected) */
+  isSelected  Boolean  @default(true)
+  selectedByDefault Boolean @default(false)
+  /** Whether tax applies to this line */
+  taxable     Boolean  @default(true)
+  /** Highlight an option as Recommended / Best Value */
+  recommended Boolean  @default(false)
+  badgeLabel  String?
+  /** Billing cadence for recurring lines (label/grouping only) */
+  recurringInterval QuoteRecurringInterval?
+  sortOrder   Int      @default(0)
+  /** Recurring lines (e.g. membership plan) are shown separately and excluded from the estimate total */
+  isRecurring Boolean  @default(false)
+  /** Scheduling preferences captured for a membership plan line (used to auto-assign on approval) */
+  planStartWeek String?
+  planWeekday   Int?
+  planTime      String?
   quantity    Decimal  @default(1) @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(10, 2)
   lineTotal   Decimal  @db.Decimal(10, 2)
   description String?
 
-  quote   Quote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  service ServiceCatalog @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  quote   Quote           @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  service ServiceCatalog? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  plan    MembershipPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  optionGroup QuoteOptionGroup? @relation(fields: [optionGroupId], references: [id], onDelete: SetNull)
+
+  @@index([optionGroupId])
 }
 
 model Employee {

@@ -25,6 +25,7 @@ type QuoteForMercuryInvoice = {
   validUntil: Date | null
   createdAt: Date
   notes: string | null
+  collectFirstCycleNow: boolean
   mercuryInvoiceId: string | null
   mercuryInvoiceSlug: string | null
   mercuryInvoiceStatus: string | null
@@ -45,7 +46,11 @@ type QuoteForMercuryInvoice = {
     quantity: { toString(): string }
     unitPrice: { toString(): string }
     description: string | null
-    service: { name: string }
+    isRecurring: boolean
+    isSelected: boolean
+    lineType: "REQUIRED" | "OPTION" | "ADDON"
+    name: string | null
+    service: { name: string } | null
   }>
 }
 
@@ -113,12 +118,17 @@ function buildInvoicePayload(
     invoiceDate,
     dueDate,
     invoiceNumber: quoteInvoiceNumber(quote.id),
-    lineItems: quote.items.map((item) => ({
-      name: item.service.name,
-      quantity: Number(item.quantity),
-      unitPrice: Number(item.unitPrice),
-      salesTaxRate,
-    })),
+    lineItems: quote.items
+      .filter((item) => {
+        const active = item.lineType === "REQUIRED" || item.isSelected
+        return active && (!item.isRecurring || quote.collectFirstCycleNow)
+      })
+      .map((item) => ({
+        name: item.service?.name ?? item.name ?? "Service",
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        salesTaxRate,
+      })),
     payerMemo: quote.notes,
     internalNote: `Rootline quote ${quote.id}`,
     creditCardEnabled: true,

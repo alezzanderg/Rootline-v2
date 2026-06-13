@@ -7,6 +7,13 @@ import {
 } from "@/lib/quote-document-format"
 import { prisma } from "@/lib/prisma"
 import { type PlanTier } from "@/lib/service-pricing"
+import {
+  computeQuoteTotals,
+  type PricingLine,
+  type QuoteLineTypeValue,
+  type QuoteRecurringIntervalValue,
+  type RecurringSummary,
+} from "@/lib/quote-pricing"
 import { absoluteUrl } from "@/lib/site-config"
 
 export { fmtMoney, fmtQuoteDate, getPublicQuotePath, QUOTE_STATUS_PUBLIC_LABEL }
@@ -40,6 +47,22 @@ export type QuoteDocumentItem = {
   unitPrice: number
   lineTotal: number
   description: string | null
+  isRecurring: boolean
+  lineType: QuoteLineTypeValue
+  optionGroupId: string | null
+  isSelected: boolean
+  taxable: boolean
+  recommended: boolean
+  badgeLabel: string | null
+  recurringInterval: QuoteRecurringIntervalValue | null
+}
+
+export type QuoteDocumentOptionGroup = {
+  id: string
+  title: string
+  description: string | null
+  selectionType: "SINGLE_SELECT" | "MULTI_SELECT"
+  required: boolean
 }
 
 export type QuoteDocumentData = {
@@ -62,6 +85,9 @@ export type QuoteDocumentData = {
   total: number
   taxRatePercent: number
   items: QuoteDocumentItem[]
+  optionGroups: QuoteDocumentOptionGroup[]
+  recurring: RecurringSummary[]
+  collectFirstCycleNow: boolean
   publicToken: string | null
   approvedAt: Date | null
   rejectedAt: Date | null
@@ -74,15 +100,20 @@ export type QuoteDocumentData = {
   paymentNote: string | null
   stripeCheckoutUrl: string | null
   stripePaymentStatus: string | null
+  paymentsEnabled: boolean
 }
 
 const quoteDocumentInclude = {
   customer: { select: { firstName: true, lastName: true, email: true, phone: true } },
   property: { select: { street: true, city: true, state: true, zipCode: true } },
   items: {
-    include: { service: { select: { name: true, category: true, pricingUnit: true } } },
-    orderBy: { id: "asc" as const },
+    include: {
+      service: { select: { name: true, category: true, pricingUnit: true } },
+      plan: { select: { name: true } },
+    },
+    orderBy: { sortOrder: "asc" as const },
   },
+  optionGroups: { orderBy: { sortOrder: "asc" as const } },
 } as const
 
 function mapQuoteToDocument(
@@ -109,6 +140,8 @@ function mapQuoteToDocument(
     paymentNote: string | null
     stripeCheckoutUrl: string | null
     stripePaymentStatus: string | null
+    paymentsEnabled: boolean
+    collectFirstCycleNow: boolean
     customer: { firstName: string; lastName: string; email: string | null; phone: string | null }
     property: { street: string; city: string; state: string; zipCode: string } | null
     items: Array<{
@@ -117,7 +150,24 @@ function mapQuoteToDocument(
       unitPrice: { toString(): string }
       lineTotal: { toString(): string }
       description: string | null
-      service: { name: string; category: string; pricingUnit: string | null }
+      isRecurring: boolean
+      name: string | null
+      lineType: QuoteLineTypeValue
+      optionGroupId: string | null
+      isSelected: boolean
+      taxable: boolean
+      recommended: boolean
+      badgeLabel: string | null
+      recurringInterval: QuoteRecurringIntervalValue | null
+      service: { name: string; category: string; pricingUnit: string | null } | null
+      plan: { name: string } | null
+    }>
+    optionGroups: Array<{
+      id: string
+      title: string
+      description: string | null
+      selectionType: "SINGLE_SELECT" | "MULTI_SELECT"
+      required: boolean
     }>
   },
   taxRatePercent: number
@@ -163,17 +213,59 @@ function mapQuoteToDocument(
     paymentNote: quote.paymentNote,
     stripeCheckoutUrl: quote.stripeCheckoutUrl,
     stripePaymentStatus: quote.stripePaymentStatus,
-    items: quote.items.map((item) => ({
-      id: item.id,
-      name: item.service.name,
-      category: item.service.category,
-      categoryLabel: QUOTE_DOCUMENT_CATEGORY_LABEL[item.service.category] ?? item.service.category,
-      pricingUnit: item.service.pricingUnit,
-      quantity: Number(item.quantity),
-      unitPrice: Number(item.unitPrice),
-      lineTotal: Number(item.lineTotal),
-      description: item.description,
+    paymentsEnabled: quote.paymentsEnabled,
+    collectFirstCycleNow: quote.collectFirstCycleNow,
+    items: quote.items.map((item) => {
+      const category = item.service?.category ?? (item.isRecurring ? "PLAN" : "OTHER")
+      return {
+        id: item.id,
+        name: item.service?.name ?? item.plan?.name ?? item.name ?? "Service",
+        category,
+        categoryLabel: item.isRecurring
+          ? "Membership"
+          : (QUOTE_DOCUMENT_CATEGORY_LABEL[category] ?? category),
+        pricingUnit: item.service?.pricingUnit ?? null,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        lineTotal: Number(item.lineTotal),
+        description: item.description,
+        isRecurring: item.isRecurring,
+        lineType: item.lineType,
+        optionGroupId: item.optionGroupId,
+        isSelected: item.isSelected,
+        taxable: item.taxable,
+        recommended: item.recommended,
+        badgeLabel: item.badgeLabel,
+        recurringInterval: item.recurringInterval,
+      }
+    }),
+    optionGroups: quote.optionGroups.map((g) => ({
+      id: g.id,
+      title: g.title,
+      description: g.description,
+      selectionType: g.selectionType,
+      required: g.required,
     })),
+    recurring: computeQuoteTotals(
+      quote.items.map(
+        (i): PricingLine => ({
+          lineType: i.lineType,
+          isRecurring: i.isRecurring,
+          isSelected: i.isSelected,
+          taxable: i.taxable,
+          quantity: Number(i.quantity),
+          unitPrice: Number(i.unitPrice),
+          lineTotal: Number(i.lineTotal),
+          recurringInterval: i.recurringInterval,
+          name: i.service?.name ?? i.plan?.name ?? i.name ?? "Recurring service",
+          description: i.description,
+          recommended: i.recommended,
+          badgeLabel: i.badgeLabel,
+        })
+      ),
+      taxRatePercent,
+      { collectFirstCycleNow: quote.collectFirstCycleNow }
+    ).recurring,
   }
 }
 

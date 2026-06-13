@@ -57,8 +57,16 @@ export function getStripeModeLabel(mode: StripeMode = getStripeMode()): string {
   return mode === "live" ? "Live" : "Test"
 }
 
-let stripeClient: Stripe | null = null
-let stripeClientKey: string | null = null
+const stripeClients = new Map<string, Stripe>()
+
+function clientForKey(key: string): Stripe {
+  let client = stripeClients.get(key)
+  if (!client) {
+    client = new Stripe(key)
+    stripeClients.set(key, client)
+  }
+  return client
+}
 
 export function getStripeClient(): Stripe {
   const key = getStripeSecretKey()
@@ -70,11 +78,24 @@ export function getStripeClient(): Stripe {
         : "STRIPE_TEST_SECRET_KEY is not configured"
     )
   }
+  return clientForKey(key)
+}
 
-  if (!stripeClient || stripeClientKey !== key) {
-    stripeClient = new Stripe(key)
-    stripeClientKey = key
+/** Infer the Stripe mode from an object id (e.g. cs_test_… / cs_live_…). */
+export function stripeModeFromId(id: string | null | undefined): StripeMode | null {
+  if (!id) return null
+  if (id.includes("_test_")) return "test"
+  if (id.includes("_live_")) return "live"
+  return null
+}
+
+/** Stripe client for a specific mode — needed to verify a session in its own mode. */
+export function getStripeClientForMode(mode: StripeMode): Stripe {
+  const key = keysForMode(mode).secretKey
+  if (!key) {
+    throw new StripeConfigError(
+      mode === "live" ? "STRIPE_LIVE_SECRET_KEY is not configured" : "STRIPE_TEST_SECRET_KEY is not configured"
+    )
   }
-
-  return stripeClient
+  return clientForKey(key)
 }

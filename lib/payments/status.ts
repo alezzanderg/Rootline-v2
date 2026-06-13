@@ -13,4 +13,4 @@ export type QuotePaymentReturnStatus = "success" | "cancelled"
 
 export type StripePaymentVerifyResult =
   | { verified: true; status: "paid" | "pending" }
-  | { verified: false; reason: "no_session" | "session_mismatch" | "not_paid" }
+  | { verified: false; reason: "no_session" | "session_mismatch" | "not_paid" | "error" }

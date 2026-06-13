@@ -31,6 +31,7 @@ const ERROR_MESSAGE: Record<string, string> = {
   signature: "Please draw your signature before accepting.",
   not_available: "This estimate is no longer available for signing.",
   not_found: "Estimate not found.",
+  option_required: "Please select an option in each required group above before accepting.",
   invalid: "Unable to process your request. Please try again.",
 }
 

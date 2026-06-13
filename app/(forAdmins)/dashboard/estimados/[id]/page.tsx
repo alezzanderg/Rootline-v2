@@ -1,8 +1,9 @@
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { Eye } from "lucide-react"
+import { Eye, MapPin, MoreVertical } from "lucide-react"
 
+import { EstimadoLineItems, type EstimadoLineItem } from "@/components/ui/EstimadoLineItems"
 import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
 import { MercuryInvoicePanel } from "@/components/quotes/MercuryInvoicePanel"
 import { ManualPaymentPanel } from "@/components/quotes/ManualPaymentPanel"
@@ -12,6 +13,8 @@ import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
 import { getMercuryPayUrl, hasValidMercuryTokenFormat, isMercuryConfigured } from "@/lib/mercury/config"
 import { isStripeConfigured, getStripeMode, getStripeModeLabel } from "@/lib/stripe/config"
 import { getPublicQuoteUrl } from "@/lib/quote-document"
+import { assignMembershipFromQuoteIfNeeded } from "@/lib/quote-membership"
+import { createOptionGroupAction, deleteOptionGroupAction } from "@/lib/quote-options-actions"
 import { prisma } from "@/lib/prisma"
 import { serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 import { QUOTE_FREQUENCY_LABEL, SERVICE_CATEGORY_LABEL } from "@/lib/quote-labels"
@@ -50,8 +53,10 @@ export default async function EstimadoDetailPage({ params }: Props) {
       data: {
         notes: parseOptStr(formData.get("notes")),
         validUntil: validUntilRaw ? new Date(validUntilRaw) : null,
+        collectFirstCycleNow: formData.get("collectFirstCycleNow") === "on",
       },
     })
+    await recalcQuoteTotals(quoteId)
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
   }
@@ -110,6 +115,100 @@ export default async function EstimadoDetailPage({ params }: Props) {
     revalidatePath("/dashboard/estimados")
   }
 
+  async function addPlanItemAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    if (!quoteId) return
+
+    const weekdayRaw = Number.parseInt(parseStr(formData.get("planWeekday")), 10)
+    const planWeekday = Number.isFinite(weekdayRaw) && weekdayRaw >= 1 && weekdayRaw <= 7 ? weekdayRaw : null
+    const startWeekRaw = parseStr(formData.get("planStartWeek"))
+    const planStartWeek = startWeekRaw === "THIS_WEEK" || startWeekRaw === "NEXT_WEEK" ? startWeekRaw : "NEXT_WEEK"
+
+    let planId: string
+    let name: string
+    let cycleTotal: number
+    let visits: number
+
+    if (parseStr(formData.get("planMode")) === "custom") {
+      const customName = parseStr(formData.get("customName"))
+      const customMonthly = parseOptFloat(formData.get("customMonthly"))
+      if (!customName || customMonthly === null || customMonthly <= 0) return
+      const visitsRaw = Number.parseInt(parseStr(formData.get("customVisits")), 10)
+      visits = Number.isFinite(visitsRaw) && visitsRaw >= 1 ? visitsRaw : 4
+      const created = await prisma.membershipPlan.create({
+        data: {
+          name: customName,
+          slug: `custom-${crypto.randomUUID()}`,
+          tier: "MEDIUM",
+          monthlyPrice: customMonthly,
+          visitsPerMonth: visits,
+          isCustom: true,
+          active: true,
+        },
+      })
+      planId = created.id
+      name = created.name
+      cycleTotal = customMonthly
+    } else {
+      const pid = parseStr(formData.get("planId"))
+      if (!pid) return
+      const plan = await prisma.membershipPlan.findUnique({ where: { id: pid } })
+      if (!plan) return
+      planId = plan.id
+      name = plan.name
+      cycleTotal = Number(plan.monthlyPrice)
+      visits = plan.visitsPerMonth
+    }
+
+    // Store as visits × per-visit so the document can show the cycle breakdown.
+    const perVisit = visits > 0 ? Math.round((cycleTotal / visits) * 100) / 100 : cycleTotal
+
+    await prisma.quoteItem.create({
+      data: {
+        quoteId,
+        planId,
+        name,
+        isRecurring: true,
+        quantity: visits,
+        unitPrice: perVisit,
+        lineTotal: cycleTotal,
+        planStartWeek,
+        planWeekday,
+        planTime: parseOptStr(formData.get("planTime")),
+        description: parseOptStr(formData.get("description")),
+      },
+    })
+
+    await recalcQuoteTotals(quoteId)
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function addCustomItemAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const name = parseStr(formData.get("name"))
+    const unitPrice = parseOptFloat(formData.get("unitPrice"))
+    const quantity = parseOptFloat(formData.get("quantity")) ?? 1
+    if (!quoteId || !name || unitPrice === null || unitPrice < 0 || quantity <= 0) return
+
+    await prisma.quoteItem.create({
+      data: {
+        quoteId,
+        name,
+        isRecurring: false,
+        quantity,
+        unitPrice,
+        lineTotal: Math.round(quantity * unitPrice * 100) / 100,
+        description: parseOptStr(formData.get("description")),
+      },
+    })
+    await recalcQuoteTotals(quoteId)
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
   async function removeItemAction(formData: FormData) {
     "use server"
     const quoteId = parseStr(formData.get("quoteId"))
@@ -119,6 +218,29 @@ export default async function EstimadoDetailPage({ params }: Props) {
     await prisma.quoteItem.delete({ where: { id: itemId } })
     await recalcQuoteTotals(quoteId)
 
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  async function updateItemAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const itemId = parseStr(formData.get("itemId"))
+    if (!quoteId || !itemId) return
+    const quantity = parseOptFloat(formData.get("quantity"))
+    const unitPrice = parseOptFloat(formData.get("unitPrice"))
+    if (quantity === null || quantity <= 0 || unitPrice === null || unitPrice < 0) return
+
+    await prisma.quoteItem.update({
+      where: { id: itemId },
+      data: {
+        quantity,
+        unitPrice,
+        lineTotal: Math.round(quantity * unitPrice * 100) / 100,
+        description: parseOptStr(formData.get("description")),
+      },
+    })
+    await recalcQuoteTotals(quoteId)
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
   }
@@ -139,6 +261,9 @@ export default async function EstimadoDetailPage({ params }: Props) {
         rejectedAt: status === "REJECTED" ? now : null,
       },
     })
+    if (status === "APPROVED") {
+      await assignMembershipFromQuoteIfNeeded(prisma, quoteId)
+    }
     revalidatePath(`/dashboard/estimados/${quoteId}`)
     revalidatePath("/dashboard/estimados")
     if (status === "APPROVED") revalidatePath("/dashboard/scheduling")
@@ -154,16 +279,63 @@ export default async function EstimadoDetailPage({ params }: Props) {
     redirect("/dashboard/estimados")
   }
 
-  const [quote, services, taxRatePercent] = await Promise.all([
+  async function togglePaymentsAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    if (!quoteId) return
+    const enabled = formData.get("paymentsEnabled") === "on"
+    await prisma.quote.update({ where: { id: quoteId }, data: { paymentsEnabled: enabled } })
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+  }
+
+  /** Testing helper: reset the quote as if the client hasn't responded yet. */
+  async function resetClientResponseAction(formData: FormData) {
+    "use server"
+    const quoteId = parseStr(formData.get("quoteId"))
+    const confirm = formData.get("confirmReset") === "on"
+    if (!quoteId || !confirm) return
+    const updated = await prisma.quote.update({
+      where: { id: quoteId },
+      data: {
+        status: "SENT",
+        sentAt: new Date(),
+        approvedAt: null,
+        rejectedAt: null,
+        signedAt: null,
+        signatureData: null,
+        paidAt: null,
+        paymentMethod: null,
+        paymentNote: null,
+        stripeCheckoutSessionId: null,
+        stripeCheckoutUrl: null,
+        stripePaymentStatus: null,
+        mercuryInvoiceId: null,
+        mercuryInvoiceSlug: null,
+        mercuryInvoiceStatus: null,
+        membershipAssignedAt: null,
+      },
+      select: { publicToken: true },
+    })
+    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    revalidatePath(`/dashboard/estimados/${quoteId}/preview`)
+    if (updated.publicToken) revalidatePath(`/quote/${updated.publicToken}`)
+    revalidatePath("/dashboard/estimados")
+  }
+
+  const [quote, services, plans, taxRatePercent] = await Promise.all([
     prisma.quote.findUnique({
       where: { id },
       include: {
         customer: { select: { firstName: true, lastName: true, email: true } },
         property: { select: { street: true, city: true, lotSizeSqFt: true } },
         items: {
-          include: { service: { select: { id: true, name: true, category: true } } },
-          orderBy: { id: "asc" },
+          include: {
+            service: { select: { id: true, name: true, category: true } },
+            plan: { select: { name: true } },
+          },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
         },
+        optionGroups: { orderBy: { sortOrder: "asc" } },
       },
     }),
     prisma.serviceCatalog.findMany({
@@ -190,10 +362,52 @@ export default async function EstimadoDetailPage({ params }: Props) {
       },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     }),
+    prisma.membershipPlan.findMany({
+      where: { active: true, isCustom: false },
+      orderBy: [{ tier: "asc" }, { monthlyPrice: "asc" }],
+      select: { id: true, name: true, tier: true, monthlyPrice: true, visitsPerMonth: true },
+    }),
     getTaxRatePercent(),
   ])
 
   if (!quote) notFound()
+
+  const planOptions = plans.map((p) => ({
+    id: p.id,
+    name: p.name,
+    tier: p.tier,
+    monthlyPrice: Number(p.monthlyPrice),
+    visitsPerMonth: p.visitsPerMonth,
+  }))
+
+  const optionGroups = quote.optionGroups.map((g) => ({
+    id: g.id,
+    title: g.title,
+    selectionType: g.selectionType,
+    required: g.required,
+  }))
+
+  const lineItems: EstimadoLineItem[] = quote.items.map((item) => ({
+    id: item.id,
+    name: item.service?.name ?? item.plan?.name ?? item.name ?? "Línea",
+    isRecurring: item.isRecurring,
+    isAddOn: item.service?.category === "ADD_ON",
+    categoryLabel: item.service
+      ? (SERVICE_CATEGORY_LABEL[item.service.category] ?? item.service.category)
+      : "Servicio",
+    quantity: Number(item.quantity),
+    unitPrice: Number(item.unitPrice),
+    lineTotal: Number(item.lineTotal),
+    description: item.description,
+    lineType: item.lineType,
+    optionGroupId: item.optionGroupId,
+    isSelected: item.isSelected,
+    selectedByDefault: item.selectedByDefault,
+    taxable: item.taxable,
+    recommended: item.recommended,
+    badgeLabel: item.badgeLabel,
+    recurringInterval: item.recurringInterval,
+  }))
 
   const statusLabel = (s: string) =>
     ({ DRAFT: "Borrador", SENT: "Enviado", APPROVED: "Aprobado", REJECTED: "Rechazado" }[s] ?? s)
@@ -240,74 +454,77 @@ export default async function EstimadoDetailPage({ params }: Props) {
   const stripeMode = getStripeMode()
   const stripeModeLabel = getStripeModeLabel(stripeMode)
 
+  const hasRecurring = lineItems.some((i) => i.isRecurring)
+  const chip = "inline-flex items-center rounded-full border border-foreground/15 bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground/65"
+  const sectionTitle = "text-[11px] font-semibold uppercase tracking-wider text-foreground/40"
+
   return (
-    <section className="mx-auto max-w-5xl text-foreground">
-      <div className="mb-4">
-        <Link href="/dashboard/estimados" className="text-sm text-foreground/55 hover:text-foreground">
+    <section className="mx-auto max-w-6xl text-foreground">
+      {/* Top bar */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Link href="/dashboard/estimados" className="text-sm text-foreground/55 transition hover:text-foreground">
           ← Volver a estimados
         </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/dashboard/estimados/${quote.id}/preview`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 bg-background px-3 py-1.5 text-xs font-semibold text-foreground/70 transition hover:border-accent/40 hover:text-accent"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Vista previa
+          </Link>
+          <details className="relative">
+            <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 bg-background text-foreground/60 transition hover:bg-foreground/5">
+              <MoreVertical className="h-4 w-4" />
+            </summary>
+            <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-foreground/12 bg-[#fdfcf8] p-2 shadow-lg">
+              <form action={deleteQuoteAction}>
+                <input type="hidden" name="id" value={quote.id} />
+                <label className="mb-2 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground/60 hover:bg-foreground/5">
+                  <input type="checkbox" name="confirmDelete" />
+                  Confirmar eliminación
+                </label>
+                <button
+                  type="submit"
+                  className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                >
+                  Eliminar estimado
+                </button>
+              </form>
+            </div>
+          </details>
+        </div>
       </div>
 
       {/* Header */}
-      <div className="rounded-2xl border border-foreground/12 bg-background p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="font-display text-2xl font-semibold">{customerName}</h1>
-            <p className="text-sm text-foreground/55">{propertyAddress}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-xs text-foreground/50">
-                <span className="font-semibold text-foreground/70">{QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}</span>
-                {" · "}
-                <span className="font-semibold text-foreground/70">{PLAN_TIER_LABEL[planTier]}</span>
-              </span>
-              <span className="font-mono text-xs text-foreground/35">#{quote.id.slice(0, 8)}</span>
-            </div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold uppercase tracking-wider text-accent">Estimado</p>
+          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">{customerName}</h1>
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-foreground/55">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            {propertyAddress}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}>
+              {statusLabel(quote.status)}
+            </span>
+            <span className={chip}>{QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}</span>
+            <span className={chip}>{PLAN_TIER_LABEL[planTier]}</span>
+            <span className={`${chip} font-mono text-foreground/40`}>#{quote.id.slice(0, 8)}</span>
           </div>
-          <div className="flex items-start gap-3">
-            <div className="text-right">
-              <span
-                className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}
-              >
-                {statusLabel(quote.status)}
-              </span>
-              <p className="mt-1.5 text-2xl font-bold tabular-nums">${Number(quote.total).toFixed(2)}</p>
-              <p className="text-[11px] text-foreground/40 tabular-nums">
-                Sub ${Number(quote.subtotal).toFixed(2)} · Tax ${Number(quote.tax).toFixed(2)}
-              </p>
-              <Link
-                href={`/dashboard/estimados/${quote.id}/preview`}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 px-2.5 py-1 text-[11px] font-semibold text-foreground/70 transition hover:border-accent/35 hover:text-accent"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Vista previa
-              </Link>
-            </div>
-            <details className="relative">
-              <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 text-sm text-foreground/60 transition hover:bg-foreground/5">
-                ⋯
-              </summary>
-              <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-foreground/12 bg-[#fdfcf8] p-2 shadow-lg">
-                <form action={deleteQuoteAction}>
-                  <input type="hidden" name="id" value={quote.id} />
-                  <label className="mb-2 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground/60 hover:bg-foreground/5">
-                    <input type="checkbox" name="confirmDelete" />
-                    Confirmar eliminación
-                  </label>
-                  <button
-                    type="submit"
-                    className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
-                  >
-                    Eliminar estimado
-                  </button>
-                </form>
-              </div>
-            </details>
-          </div>
+        </div>
+        <div className="rounded-2xl border border-foreground/12 bg-white/50 px-5 py-4 text-right">
+          <p className={sectionTitle}>Total {hasRecurring ? "hoy" : ""}</p>
+          <p className="mt-0.5 font-display text-3xl font-bold tabular-nums text-forest">${Number(quote.total).toFixed(2)}</p>
+          <p className="text-[11px] text-foreground/40 tabular-nums">
+            Sub ${Number(quote.subtotal).toFixed(2)} · Tax ${Number(quote.tax).toFixed(2)}
+          </p>
         </div>
       </div>
 
       {/* Two-column layout */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_284px]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
 
         {/* Left: services + line items */}
         <div className="space-y-4">
@@ -317,114 +534,78 @@ export default async function EstimadoDetailPage({ params }: Props) {
             initialPlanTier={planTier}
             coreServices={coreServices}
             addonServices={addonServices}
+            plans={planOptions}
             updateFrequencyAction={updateFrequencyAction}
             updatePlanTierAction={updatePlanTierAction}
             addItemAction={addItemAction}
+            addCustomItemAction={addCustomItemAction}
+            addPlanItemAction={addPlanItemAction}
           />
 
-          {/* Line items */}
-          <div className="rounded-2xl border border-foreground/12 bg-background">
-            <div className="border-b border-foreground/10 px-4 py-3 text-sm font-semibold">
-              Líneas del estimado
-            </div>
-            {quote.items.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-foreground/45">Aún no tiene líneas.</p>
-            ) : (
-              <ul className="divide-y divide-foreground/8">
-                {quote.items.map((item) => (
-                  <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
+          {/* Line items (editable ticket) */}
+          <EstimadoLineItems
+            quoteId={quote.id}
+            items={lineItems}
+            optionGroups={optionGroups}
+            subtotal={Number(quote.subtotal)}
+            tax={Number(quote.tax)}
+            total={Number(quote.total)}
+            taxRatePercent={taxRatePercent}
+            updateItemAction={updateItemAction}
+            removeItemAction={removeItemAction}
+          />
+
+          {/* Option groups manager */}
+          <div className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
+            <p className={sectionTitle}>Grupos de opciones</p>
+            <p className="mt-1 text-xs text-foreground/45">
+              Agrupa líneas como opciones a elegir (el cliente elige una). Marca cada línea como Opción y asígnala a un grupo en su menú ⚙︎.
+            </p>
+            {quote.optionGroups.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {quote.optionGroups.map((g) => (
+                  <li key={g.id} className="flex items-center justify-between gap-2 rounded-xl border border-foreground/12 bg-background px-3 py-2">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-medium">{item.service.name}</p>
-                        <span
-                          className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
-                            item.service.category === "ADD_ON"
-                              ? "border-violet-300/40 bg-violet-50/80 text-violet-700"
-                              : "border-foreground/15 bg-foreground/5 text-foreground/55"
-                          }`}
-                        >
-                          {SERVICE_CATEGORY_LABEL[item.service.category] ?? item.service.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-foreground/50">
-                        {Number(item.quantity)} × ${Number(item.unitPrice).toFixed(2)}
+                      <p className="truncate text-sm font-medium">{g.title}</p>
+                      <p className="text-[11px] text-foreground/45">
+                        {g.selectionType === "SINGLE_SELECT" ? "Elegir una" : "Elegir varias"}
+                        {g.required ? " · obligatorio" : " · opcional"}
                       </p>
-                      {item.description ? (
-                        <p className="mt-1 text-xs text-foreground/45">{item.description}</p>
-                      ) : null}
                     </div>
-                    <div className="text-right">
-                      <p className="tabular-nums text-sm font-semibold">${Number(item.lineTotal).toFixed(2)}</p>
-                      <form action={removeItemAction} className="mt-1">
-                        <input type="hidden" name="quoteId" value={quote.id} />
-                        <input type="hidden" name="itemId" value={item.id} />
-                        <button type="submit" className="text-xs text-rose-600 hover:underline">
-                          Quitar
-                        </button>
-                      </form>
-                    </div>
+                    <form action={deleteOptionGroupAction}>
+                      <input type="hidden" name="quoteId" value={quote.id} />
+                      <input type="hidden" name="groupId" value={g.id} />
+                      <button type="submit" className="text-xs text-rose-600 hover:underline">Eliminar</button>
+                    </form>
                   </li>
                 ))}
               </ul>
-            )}
-            <div className="border-t border-foreground/10 bg-foreground/2 px-4 py-3">
-              <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
-                <div className="flex items-center justify-between text-foreground/65">
-                  <span>Subtotal</span>
-                  <span className="tabular-nums">${Number(quote.subtotal).toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-foreground/65">
-                  <span>Tax ({taxRatePercent.toFixed(3)}%)</span>
-                  <span className="tabular-nums">${Number(quote.tax).toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-foreground/12 pt-1.5 font-semibold text-foreground">
-                  <span>Total</span>
-                  <span className="tabular-nums">${Number(quote.total).toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+            ) : null}
+            <form action={createOptionGroupAction} className="mt-3 grid gap-2 sm:grid-cols-2">
+              <input type="hidden" name="quoteId" value={quote.id} />
+              <input name="title" required placeholder="Ej. Elige tu plan de mantenimiento" className={`${ic} sm:col-span-2`} />
+              <input name="description" placeholder="Descripción (opcional)" className={`${ic} sm:col-span-2`} />
+              <select name="selectionType" className={ic}>
+                <option value="SINGLE_SELECT">Elegir una</option>
+                <option value="MULTI_SELECT">Elegir varias</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm text-foreground/65">
+                <input type="checkbox" name="required" defaultChecked />
+                Obligatorio
+              </label>
+              <button type="submit" className="rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:bg-foreground/85 sm:col-span-2">
+                Crear grupo
+              </button>
+            </form>
           </div>
         </div>
 
         {/* Right: sidebar */}
         <div className="space-y-4">
-          <QuotePublicLinkPanel quoteId={quote.id} publicUrl={publicUrl} />
-
-          <MercuryInvoicePanel
-            quoteId={quote.id}
-            quoteStatus={quote.status}
-            customerEmail={quote.customer.email}
-            payUrl={mercuryPayUrl}
-            invoiceStatus={quote.mercuryInvoiceStatus}
-            mercuryConfigured={mercuryConfigured}
-            mercuryTokenValid={mercuryTokenValid}
-          />
-
-          <StripeCheckoutPanel
-            quoteId={quote.id}
-            quoteStatus={quote.status}
-            publicUrl={publicUrl}
-            checkoutUrl={quote.stripeCheckoutUrl}
-            paymentStatus={quote.stripePaymentStatus}
-            stripeConfigured={stripeConfigured}
-            stripeModeLabel={stripeModeLabel}
-          />
-
-          <ManualPaymentPanel
-            quoteId={quote.id}
-            quoteStatus={quote.status}
-            total={Number(quote.total)}
-            paidAt={quote.paidAt?.toISOString() ?? null}
-            paymentMethod={quote.paymentMethod}
-            paymentNote={quote.paymentNote}
-            mercuryInvoiceStatus={quote.mercuryInvoiceStatus}
-            stripePaymentStatus={quote.stripePaymentStatus}
-          />
-
-          {/* Status */}
-          <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
-            <p className="mb-3 text-sm font-semibold text-foreground/80">Estado del estimado</p>
-            <div className="flex flex-wrap gap-2">
+          {/* Estado */}
+          <div className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
+            <p className={sectionTitle}>Estado del estimado</p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
               {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
                 <form key={s} action={changeStatusAction}>
                   <input type="hidden" name="quoteId" value={quote.id} />
@@ -444,11 +625,89 @@ export default async function EstimadoDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Details */}
-          <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+          {/* Compartir */}
+          <QuotePublicLinkPanel quoteId={quote.id} publicUrl={publicUrl} />
+
+          {/* Pagos */}
+          <div className="space-y-3">
+            <p className={`${sectionTitle} px-1`}>Pagos</p>
+
+            {/* Online payments toggle */}
+            <div className={`rounded-2xl border p-4 ${quote.paymentsEnabled ? "border-foreground/12 bg-white/50" : "border-amber-400/40 bg-amber-50/50"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground/80">Pago en línea</p>
+                  <p className="mt-0.5 text-xs text-foreground/55">
+                    {quote.paymentsEnabled
+                      ? "El cliente ve el checkout en el estimado."
+                      : "El checkout está oculto para el cliente."}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    quote.paymentsEnabled ? "border-emerald-600/30 bg-emerald-50 text-emerald-700" : "border-amber-500/40 bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {quote.paymentsEnabled ? "Activado" : "Desactivado"}
+                </span>
+              </div>
+              <form action={togglePaymentsAction} className="mt-3">
+                <input type="hidden" name="quoteId" value={quote.id} />
+                <input type="hidden" name="paymentsEnabled" value={quote.paymentsEnabled ? "off" : "on"} />
+                <button
+                  type="submit"
+                  className={`w-full rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    quote.paymentsEnabled
+                      ? "border border-foreground/20 text-foreground/70 hover:bg-foreground/5"
+                      : "bg-accent text-accent-foreground hover:bg-accent/90"
+                  }`}
+                >
+                  {quote.paymentsEnabled ? "Deshabilitar pago en línea" : "Habilitar pago en línea"}
+                </button>
+              </form>
+            </div>
+
+            {quote.paymentsEnabled ? (
+              <>
+                <MercuryInvoicePanel
+                  quoteId={quote.id}
+                  quoteStatus={quote.status}
+                  customerEmail={quote.customer.email}
+                  payUrl={mercuryPayUrl}
+                  invoiceStatus={quote.mercuryInvoiceStatus}
+                  mercuryConfigured={mercuryConfigured}
+                  mercuryTokenValid={mercuryTokenValid}
+                />
+
+                <StripeCheckoutPanel
+                  quoteId={quote.id}
+                  quoteStatus={quote.status}
+                  publicUrl={publicUrl}
+                  checkoutUrl={quote.stripeCheckoutUrl}
+                  paymentStatus={quote.stripePaymentStatus}
+                  stripeConfigured={stripeConfigured}
+                  stripeModeLabel={stripeModeLabel}
+                />
+              </>
+            ) : null}
+
+            <ManualPaymentPanel
+              quoteId={quote.id}
+              quoteStatus={quote.status}
+              total={Number(quote.total)}
+              paidAt={quote.paidAt?.toISOString() ?? null}
+              paymentMethod={quote.paymentMethod}
+              paymentNote={quote.paymentNote}
+              mercuryInvoiceStatus={quote.mercuryInvoiceStatus}
+              stripePaymentStatus={quote.stripePaymentStatus}
+            />
+          </div>
+
+          {/* Detalles */}
+          <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
             <input type="hidden" name="id" value={quote.id} />
-            <p className="mb-3 text-sm font-semibold text-foreground/80">Detalles</p>
-            <div className="space-y-3">
+            <p className={sectionTitle}>Detalles</p>
+            <div className="mt-2.5 space-y-3">
               <label className="grid gap-1">
                 <span className={lbl}>Válido hasta</span>
                 <input
@@ -460,21 +719,44 @@ export default async function EstimadoDetailPage({ params }: Props) {
               </label>
               <label className="grid gap-1">
                 <span className={lbl}>Notas</span>
-                <textarea
-                  name="notes"
-                  defaultValue={quote.notes ?? ""}
-                  rows={4}
-                  className={`${ic} resize-none`}
-                />
+                <textarea name="notes" defaultValue={quote.notes ?? ""} rows={4} className={`${ic} resize-none`} />
               </label>
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background"
-              >
+              <label className="flex items-start gap-2 text-sm text-foreground/70">
+                <input type="checkbox" name="collectFirstCycleNow" defaultChecked={quote.collectFirstCycleNow} className="mt-0.5" />
+                <span>
+                  Cobrar el 1er ciclo recurrente hoy
+                  <span className="block text-[11px] text-foreground/45">Suma el primer ciclo del plan elegido al total a pagar hoy.</span>
+                </span>
+              </label>
+              <button type="submit" className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:bg-foreground/85">
                 Guardar cambios
               </button>
             </div>
           </form>
+
+          {/* Pruebas */}
+          <details className="rounded-2xl border border-foreground/10 bg-foreground/2 p-4">
+            <summary className="cursor-pointer list-none text-xs font-semibold text-foreground/50">
+              🧪 Pruebas: deshacer respuesta del cliente
+            </summary>
+            <p className="mt-2 text-[11px] leading-relaxed text-foreground/50">
+              Regresa el estimado a <b>Enviado</b> y borra firma, aceptación/rechazo, pagos y la membresía
+              auto-asignada, como si el cliente aún no hubiera respondido.
+            </p>
+            <form action={resetClientResponseAction} className="mt-2 flex flex-wrap items-center gap-2">
+              <input type="hidden" name="quoteId" value={quote.id} />
+              <label className="flex items-center gap-1.5 text-[11px] text-foreground/55">
+                <input type="checkbox" name="confirmReset" />
+                Confirmar
+              </label>
+              <button
+                type="submit"
+                className="rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+              >
+                Deshacer / Reset
+              </button>
+            </form>
+          </details>
         </div>
       </div>
     </section>

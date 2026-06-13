@@ -110,7 +110,7 @@ export default async function ServiciosAdminPage() {
       orderBy: [{ category: "asc" }, { displayOrder: "asc" }, { name: "asc" }],
     }),
     prisma.membershipPlan.findMany({
-      where: { active: true },
+      where: { active: true, isCustom: false },
       orderBy: [{ tier: "asc" }, { monthlyPrice: "asc" }],
     }),
     prisma.customerMembership.findMany({

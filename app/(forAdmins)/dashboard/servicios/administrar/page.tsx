@@ -122,7 +122,7 @@ export default async function AdministrarCatalogoPage() {
 
   const [plans, customers] = await Promise.all([
     prisma.membershipPlan.findMany({
-      where: { active: true },
+      where: { active: true, isCustom: false },
       orderBy: [{ tier: "asc" }, { monthlyPrice: "asc" }],
     }),
     prisma.customer.findMany({

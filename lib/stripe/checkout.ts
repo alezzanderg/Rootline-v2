@@ -5,7 +5,14 @@ import { getPublicQuotePath, getPublicQuoteUrl } from "@/lib/quote-document"
 import { prisma } from "@/lib/prisma"
 import { getCheckoutBrandingSettings } from "@/lib/stripe/branding"
 import type { StripePaymentVerifyResult } from "@/lib/payments/status"
-import { getStripeClient, isStripeConfigured, StripeConfigError } from "@/lib/stripe/config"
+import {
+  getStripeClient,
+  getStripeClientForMode,
+  getStripeMode,
+  isStripeConfigured,
+  stripeModeFromId,
+  StripeConfigError,
+} from "@/lib/stripe/config"
 
 export { isStripeConfigured, StripeConfigError }
 
@@ -26,22 +33,32 @@ function buildLineItems(
     items: Array<{
       quantity: { toString(): string }
       unitPrice: { toString(): string }
-      service: { name: string }
+      isRecurring: boolean
+      isSelected: boolean
+      lineType: "REQUIRED" | "OPTION" | "ADDON"
+      name: string | null
+      service: { name: string } | null
     }>
     tax: { toString(): string }
     taxRatePercent: number
+    collectFirstCycleNow: boolean
   }
 ): Stripe.Checkout.SessionCreateParams.LineItem[] {
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = quote.items.map((item) => ({
-    quantity: Math.max(1, Math.round(Number(item.quantity))),
-    price_data: {
-      currency: "usd",
-      unit_amount: toCents(Number(item.unitPrice)),
-      product_data: {
-        name: item.service.name,
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = quote.items
+    .filter((item) => {
+      const active = item.lineType === "REQUIRED" || item.isSelected
+      return active && (!item.isRecurring || quote.collectFirstCycleNow)
+    })
+    .map((item) => ({
+      quantity: Math.max(1, Math.round(Number(item.quantity))),
+      price_data: {
+        currency: "usd",
+        unit_amount: toCents(Number(item.unitPrice)),
+        product_data: {
+          name: item.service?.name ?? item.name ?? "Service",
+        },
       },
-    },
-  }))
+    }))
 
   const tax = Number(quote.tax)
   if (tax > 0) {
@@ -200,42 +217,55 @@ export async function verifyStripePaymentReturn(
     select: { id: true, stripeCheckoutSessionId: true, publicToken: true },
   })
 
-  const sessionId = sessionIdFromUrl?.trim() || quote?.stripeCheckoutSessionId
-  if (!quote || !sessionId) {
+  // Only trust the checkout session currently stored on the quote. A success URL
+  // by itself must never re-mark payment — e.g. revisiting an old payment link
+  // after the quote was reset (its stored session is cleared).
+  const storedSession = quote?.stripeCheckoutSessionId?.trim() || null
+  if (!quote || !storedSession) {
     return { verified: false, reason: "no_session" }
   }
 
-  if (
-    quote.stripeCheckoutSessionId &&
-    sessionIdFromUrl?.trim() &&
-    quote.stripeCheckoutSessionId !== sessionIdFromUrl.trim()
-  ) {
+  const urlSession = sessionIdFromUrl?.trim()
+  if (urlSession && urlSession !== storedSession) {
     return { verified: false, reason: "session_mismatch" }
   }
 
-  const stripe = getStripeClient()
-  const session = await stripe.checkout.sessions.retrieve(sessionId)
+  const sessionId = storedSession
 
-  if (session.metadata?.publicToken !== publicToken) {
-    return { verified: false, reason: "session_mismatch" }
+  // Use the client matching the session's own mode (cs_test_… vs cs_live_…) so a
+  // test session is never verified with a live key (and vice versa).
+  const mode = stripeModeFromId(sessionId) ?? getStripeMode()
+
+  try {
+    const stripe = getStripeClientForMode(mode)
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+
+    if (session.metadata?.publicToken !== publicToken) {
+      return { verified: false, reason: "session_mismatch" }
+    }
+
+    if (isStripeCheckoutSessionPaid(session)) {
+      await prisma.quote.update({
+        where: { id: quote.id },
+        data: {
+          stripeCheckoutSessionId: session.id,
+          stripeCheckoutUrl: session.url ?? undefined,
+          stripePaymentStatus: session.status ?? "complete",
+          paidAt: new Date(),
+          paymentMethod: "STRIPE",
+        },
+      })
+      // Revalidation runs in the Stripe webhook / admin actions — not here (page render).
+      return { verified: true, status: "paid" }
+    }
+
+    return { verified: true, status: "pending" }
+  } catch (error) {
+    // Never crash the customer-facing page on a verification error (bad key, mode
+    // mismatch, network). The Stripe webhook remains the source of truth for payment.
+    console.error("verifyStripePaymentReturn failed", error)
+    return { verified: false, reason: "error" }
   }
-
-  if (isStripeCheckoutSessionPaid(session)) {
-    await prisma.quote.update({
-      where: { id: quote.id },
-      data: {
-        stripeCheckoutSessionId: session.id,
-        stripeCheckoutUrl: session.url ?? undefined,
-        stripePaymentStatus: session.status ?? "complete",
-        paidAt: new Date(),
-        paymentMethod: "STRIPE",
-      },
-    })
-    // Revalidation runs in the Stripe webhook / admin actions — not here (page render).
-    return { verified: true, status: "paid" }
-  }
-
-  return { verified: true, status: "pending" }
 }
 
 /** @deprecated Use verifyStripePaymentReturn — kept for webhook/admin sync paths */
