@@ -26,6 +26,7 @@ export type TransactionInitial = {
   vendor?: string | null
   invoiceNumber?: string | null
   receiptUrl?: string | null
+  affectsCash?: boolean
   partnerId?: string | null
   jobId?: string | null
   quoteId?: string | null
@@ -182,6 +183,16 @@ export function OperatingTransactionForm({
             <span className={lbl}>Recibo (imagen, opcional)</span>
             <ReceiptInput defaultValue={initial?.receiptUrl ?? ""} />
           </div>
+
+          <label className="flex items-start gap-2 rounded-xl border border-foreground/12 bg-white/60 p-3 text-sm text-foreground/70 sm:col-span-2">
+            <input type="checkbox" name="affectsCash" defaultChecked={initial?.affectsCash ?? true} className="mt-0.5" />
+            <span>
+              Afecta la cuenta de la empresa (efectivo real)
+              <span className="block text-[11px] text-foreground/45">
+                Desmárcalo si fue en especie — p. ej. un socio pagó directo a un proveedor. No suma/resta del saldo, pero sí cuenta como deuda al socio.
+              </span>
+            </span>
+          </label>
         </div>
       </fieldset>
 

@@ -26,7 +26,7 @@ export default async function OperatingPage({ searchParams }: Props) {
   const period = normalizePeriod(sp.period)
   const start = periodStart(period)
 
-  const [partners, allTxns] = await Promise.all([
+  const [partners, allTxns, paidQuotes] = await Promise.all([
     prisma.partner.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
     prisma.operatingTransaction.findMany({
       orderBy: { occurredAt: "desc" },
@@ -34,6 +34,20 @@ export default async function OperatingPage({ searchParams }: Props) {
         partner: { select: { name: true } },
         job: { select: { title: true } },
         quote: { select: { id: true, customer: { select: { firstName: true, lastName: true } } } },
+      },
+    }),
+    prisma.quote.findMany({
+      where: { paidAt: { not: null } },
+      orderBy: { paidAt: "desc" },
+      select: {
+        id: true,
+        subtotal: true,
+        tax: true,
+        total: true,
+        paidAt: true,
+        paymentMethod: true,
+        customer: { select: { firstName: true, lastName: true } },
+        jobs: { select: { id: true } },
       },
     }),
   ])
@@ -47,6 +61,7 @@ export default async function OperatingPage({ searchParams }: Props) {
     PARTNER_REIMBURSEMENT: 0,
     COMPANY_EXPENSE: 0,
     PROJECT_EXPENSE: 0,
+    SALES_TAX_REMITTANCE: 0,
   }
   const byCategory = new Map<string, number>()
   for (const t of periodTxns) {
@@ -58,10 +73,45 @@ export default async function OperatingPage({ searchParams }: Props) {
       byCategory.set(key, (byCategory.get(key) ?? 0) + amt)
     }
   }
-  const gastosPeriodo = byType.COMPANY_EXPENSE + byType.PROJECT_EXPENSE
   const aportesPeriodo = byType.CAPITAL_CONTRIBUTION + byType.PARTNER_LOAN
   const categories = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
   const maxCat = categories.length ? categories[0][1] : 0
+
+  // Service income from paid estimates + project expenses linked to each one.
+  const jobToQuote = new Map<string, string>()
+  for (const q of paidQuotes) for (const j of q.jobs) jobToQuote.set(j.id, q.id)
+  const projectExpenseByQuote = new Map<string, number>()
+  for (const t of allTxns) {
+    if (t.type !== "PROJECT_EXPENSE") continue
+    const qid = t.quoteId ?? (t.jobId ? jobToQuote.get(t.jobId) ?? null : null)
+    if (!qid) continue
+    projectExpenseByQuote.set(qid, (projectExpenseByQuote.get(qid) ?? 0) + num(t.amount))
+  }
+  const periodPaidQuotes = start ? paidQuotes.filter((q) => q.paidAt && q.paidAt >= start) : paidQuotes
+
+  // Revenue is PRE-TAX: sales tax is collected on the state's behalf, not company income.
+  const serviceRevenue = periodPaidQuotes.reduce((s, q) => s + num(q.subtotal), 0)
+  const salesTaxCollected = periodPaidQuotes.reduce((s, q) => s + num(q.tax), 0)
+
+  // Expenses matched to the period (revenue-matched): a job's project costs count in
+  // the period its estimate was PAID — even if the cost was logged in another month —
+  // so per-job profit is always correct. Company (overhead) expenses and project costs
+  // not tied to any estimate count by the date they occurred.
+  const gastosProyectoPeriodo = periodPaidQuotes.reduce(
+    (s, q) => s + (projectExpenseByQuote.get(q.id) ?? 0),
+    0,
+  )
+  let gastosEmpresaPeriodo = 0
+  for (const t of periodTxns) {
+    if (t.type === "COMPANY_EXPENSE") {
+      gastosEmpresaPeriodo += num(t.amount)
+    } else if (t.type === "PROJECT_EXPENSE") {
+      const qid = t.quoteId ?? (t.jobId ? jobToQuote.get(t.jobId) ?? null : null)
+      if (qid == null) gastosEmpresaPeriodo += num(t.amount) // orphan cost → count by occurrence
+    }
+  }
+  const gastosPeriodo = gastosProyectoPeriodo + gastosEmpresaPeriodo
+  const profitPeriodo = serviceRevenue - gastosPeriodo
 
   // Partner balances (all-time)
   const balances = partners.map((p) => {
@@ -79,10 +129,41 @@ export default async function OperatingPage({ searchParams }: Props) {
   })
 
   // Accumulated (all-time) partner totals
-  const totalCapital = balances.reduce((s, b) => s + b.capital, 0)
   const totalLoans = balances.reduce((s, b) => s + b.loans, 0)
   const totalReimb = balances.reduce((s, b) => s + b.reimb, 0)
   const totalDebt = totalLoans - totalReimb
+
+  // Estimated company account balance (all-time) — cash only: in-kind movements
+  // (affectsCash = false, e.g. a partner buying equipment directly) don't touch the account.
+  // Income here uses the full amount COLLECTED (incl. tax) since that cash really hit the bank.
+  const allTimeCash = paidQuotes.reduce((s, q) => s + num(q.total), 0)
+  let cashCapital = 0
+  let cashLoans = 0
+  let cashReimb = 0
+  let cashExpenses = 0
+  let cashTaxRemitted = 0
+  for (const t of allTxns) {
+    if (!t.affectsCash) continue
+    const amt = num(t.amount)
+    if (t.type === "CAPITAL_CONTRIBUTION") cashCapital += amt
+    else if (t.type === "PARTNER_LOAN") cashLoans += amt
+    else if (t.type === "PARTNER_REIMBURSEMENT") cashReimb += amt
+    else if (t.type === "COMPANY_EXPENSE" || t.type === "PROJECT_EXPENSE") cashExpenses += amt
+    else if (t.type === "SALES_TAX_REMITTANCE") cashTaxRemitted += amt
+  }
+  // Total cash physically in the bank (includes sales tax collected, minus what's been remitted).
+  const accountBalance =
+    allTimeCash + cashCapital + cashLoans - cashReimb - cashExpenses - cashTaxRemitted
+
+  // --- Sales tax account (separate ledger) ---
+  // Collected (all-time) on the state's behalf vs. what we've already remitted.
+  const salesTaxCollectedAll = paidQuotes.reduce((s, q) => s + num(q.tax), 0)
+  const salesTaxRemittedAll = allTxns
+    .filter((t) => t.type === "SALES_TAX_REMITTANCE")
+    .reduce((s, t) => s + num(t.amount), 0)
+  const salesTaxOwed = salesTaxCollectedAll - salesTaxRemittedAll
+  // Company money actually available to operate = bank cash minus the tax we still owe.
+  const availableBalance = accountBalance - salesTaxOwed
 
   const PeriodTabs = (
     <div className="flex flex-wrap gap-1.5">
@@ -107,7 +188,7 @@ export default async function OperatingPage({ searchParams }: Props) {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
           <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Operating</h1>
-          <p className="mt-2 text-sm text-foreground/55">Socios, capital, préstamos, reembolsos y gastos.</p>
+          <p className="mt-2 text-sm text-foreground/55">Centro de control financiero — saldo, ingresos, gastos y socios.</p>
         </div>
         <Link
           href="/dashboard/operating/nuevo"
@@ -118,22 +199,84 @@ export default async function OperatingPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      {/* Accumulated partner standing (all-time) */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-50/60 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-amber-800/70">Deuda a socios</p>
-          <p className="mt-1 text-2xl font-bold text-amber-800">{fmtMoney(totalDebt)}</p>
-          <p className="mt-1 text-[11px] text-amber-800/60">Por inversión/préstamos pendientes de reembolsar</p>
+      {/* Hero: two accounts — company operating money + sales tax ledger */}
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        {/* Company available balance */}
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-forest p-6 text-cream lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-moss-light">Saldo disponible de la empresa</p>
+              <p className={`mt-1 font-display text-4xl font-bold tabular-nums ${availableBalance >= 0 ? "text-cream" : "text-rose-300"}`}>
+                {availableBalance < 0 ? "−" : ""}
+                {fmtMoney(Math.abs(availableBalance))}
+              </p>
+              <p className="mt-1 text-[11px] text-cream/50">
+                En banco {fmtMoney(accountBalance)} − {fmtMoney(salesTaxOwed)} de sales tax apartado para el estado.
+                Lo comprado en especie no afecta el saldo.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-sm sm:grid-cols-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-cream/45">Cobrado (con imp.)</p>
+                <p className="font-semibold tabular-nums text-emerald-300">{fmtMoney(allTimeCash)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-cream/45">Capital (efectivo)</p>
+                <p className="font-semibold tabular-nums">{fmtMoney(cashCapital)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-cream/45">Préstamos (efectivo)</p>
+                <p className="font-semibold tabular-nums">{fmtMoney(cashLoans)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-cream/45">Reembolsos</p>
+                <p className="font-semibold tabular-nums text-cream/80">−{fmtMoney(cashReimb)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-cream/45">Gastos (efectivo)</p>
+                <p className="font-semibold tabular-nums text-rose-300">−{fmtMoney(cashExpenses)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-cream/45">Sales tax apartado</p>
+                <p className="font-semibold tabular-nums text-amber-300">−{fmtMoney(salesTaxOwed)}</p>
+              </div>
+            </div>
+          </div>
+          {totalDebt > 0 && (
+            <div className="mt-4 border-t border-white/10 pt-3 text-[11px] text-cream/55">
+              Además, la empresa debe <b className="text-amber-200">{fmtMoney(totalDebt)}</b> a socios (incluye compras en especie).
+            </div>
+          )}
         </div>
-        <div className="rounded-2xl border border-foreground/15 bg-foreground/3 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-foreground/50">Capital aportado</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoney(totalCapital)}</p>
-          <p className="mt-1 text-[11px] text-foreground/45">Equity de los socios (acumulado)</p>
-        </div>
-        <div className="rounded-2xl border border-foreground/15 bg-foreground/3 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-foreground/50">Reembolsado a socios</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoney(totalReimb)}</p>
-          <p className="mt-1 text-[11px] text-foreground/45">Pagado de vuelta (acumulado)</p>
+
+        {/* Sales tax account */}
+        <div className="overflow-hidden rounded-2xl border border-amber-300/30 bg-amber-50/60 p-6">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700/80">Cuenta de Sales Tax</p>
+            <Link
+              href="/dashboard/operating/nuevo?type=SALES_TAX_REMITTANCE"
+              className="rounded-lg border border-amber-600/30 px-2 py-1 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100"
+            >
+              Registrar remisión
+            </Link>
+          </div>
+          <p className={`mt-1 font-display text-4xl font-bold tabular-nums ${salesTaxOwed >= 0 ? "text-amber-800" : "text-emerald-700"}`}>
+            {salesTaxOwed < 0 ? "−" : ""}
+            {fmtMoney(Math.abs(salesTaxOwed))}
+          </p>
+          <p className="mt-1 text-[11px] text-amber-700/70">
+            {salesTaxOwed >= 0 ? "Por remitir al estado" : "Pagado de más (a favor)"}
+          </p>
+          <div className="mt-4 space-y-1.5 border-t border-amber-300/40 pt-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-amber-700/70">Recaudado (todo)</span>
+              <span className="font-semibold tabular-nums text-amber-900">{fmtMoney(salesTaxCollectedAll)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-amber-700/70">Remitido</span>
+              <span className="font-semibold tabular-nums text-emerald-700">−{fmtMoney(salesTaxRemittedAll)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -143,21 +286,34 @@ export default async function OperatingPage({ searchParams }: Props) {
       </div>
 
       {/* Period summary (no bank-balance implied) */}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-50/50 p-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">Ingresos por servicios</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-700">{fmtMoney(serviceRevenue)}</p>
+          <p className="mt-1 text-[11px] text-emerald-700/60">
+            {periodPaidQuotes.length} estimado(s) pagado(s) · sin impuesto
+            {salesTaxCollected > 0 ? ` · +${fmtMoney(salesTaxCollected)} imp. recaudado` : ""}
+          </p>
+        </div>
         <div className="rounded-2xl border border-rose-500/25 bg-rose-50/50 p-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-rose-700/70">Gastos del periodo</p>
           <p className="mt-1 text-2xl font-bold text-rose-700">{fmtMoney(gastosPeriodo)}</p>
-          <p className="mt-1 text-[11px] text-rose-700/60">Gastos de empresa + de proyectos</p>
+          <p className="mt-1 text-[11px] text-rose-700/60">
+            Proyectos {fmtMoney(gastosProyectoPeriodo)} · empresa {fmtMoney(gastosEmpresaPeriodo)}
+          </p>
         </div>
         <div className="rounded-2xl border border-foreground/15 bg-foreground/3 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-foreground/50">Aportado por socios</p>
-          <p className="mt-1 text-2xl font-bold">{fmtMoney(aportesPeriodo)}</p>
-          <p className="mt-1 text-[11px] text-foreground/45">Capital + préstamos. Puede ser compra directa del socio, no efectivo en banco.</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-foreground/50">Utilidad del periodo</p>
+          <p className={`mt-1 text-2xl font-bold ${profitPeriodo >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+            {profitPeriodo < 0 ? "−" : ""}
+            {fmtMoney(Math.abs(profitPeriodo))}
+          </p>
+          <p className="mt-1 text-[11px] text-foreground/45">Ingreso sin imp. − gastos. Aportes de socios: {fmtMoney(aportesPeriodo)}</p>
         </div>
       </div>
 
       {/* By type chips */}
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {(Object.keys(byType) as OperatingTxnType[]).map((t) => (
           <div key={t} className="rounded-xl border border-foreground/12 bg-background p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">{OPERATING_TYPE_META[t].short}</p>
@@ -228,6 +384,73 @@ export default async function OperatingPage({ searchParams }: Props) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Service income (paid estimates) + linked project expenses */}
+      <div className="mt-8">
+        <h2 className="font-display text-xl font-semibold">Ingresos por servicios · {PERIOD_LABEL[period]}</h2>
+        <p className="mt-0.5 text-xs text-foreground/45">Estimados pagados, con los gastos de proyecto ligados y la utilidad por trabajo.</p>
+        {periodPaidQuotes.length === 0 ? (
+          <p className="mt-3 rounded-xl border border-dashed border-foreground/20 px-4 py-10 text-center text-sm text-foreground/45">
+            Sin estimados pagados en este periodo.
+          </p>
+        ) : (
+          <div className="mt-3 overflow-hidden rounded-2xl border border-foreground/12">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-foreground/10 bg-foreground/4">
+                    {["Cliente / estimado", "Pagado", "Ingreso (s/imp.)", "Impuesto", "Gastos proyecto", "Utilidad", ""].map((h, i) => (
+                      <th key={i} className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-foreground/45">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {periodPaidQuotes.map((q) => {
+                    const revenue = num(q.subtotal)
+                    const tax = num(q.tax)
+                    const exp = projectExpenseByQuote.get(q.id) ?? 0
+                    const net = revenue - exp
+                    return (
+                      <tr key={q.id} className="border-b border-foreground/8 last:border-b-0">
+                        <td className="px-3 py-2.5 align-top">
+                          <p className="font-medium">{q.customer.firstName} {q.customer.lastName}</p>
+                          <p className="font-mono text-[11px] text-foreground/40">#{q.id.slice(0, 8)}</p>
+                        </td>
+                        <td className="px-3 py-2.5 align-top whitespace-nowrap text-xs text-foreground/60">{fmtDate(q.paidAt)}</td>
+                        <td className="px-3 py-2.5 align-top text-right font-semibold tabular-nums text-emerald-700">{fmtMoney(revenue)}</td>
+                        <td className="px-3 py-2.5 align-top text-right tabular-nums text-foreground/45">{tax > 0 ? fmtMoney(tax) : "—"}</td>
+                        <td className="px-3 py-2.5 align-top text-right tabular-nums text-rose-700">{exp > 0 ? `−${fmtMoney(exp)}` : "—"}</td>
+                        <td className={`px-3 py-2.5 align-top text-right font-semibold tabular-nums ${net >= 0 ? "text-foreground" : "text-rose-700"}`}>{fmtMoney(net)}</td>
+                        <td className="px-3 py-2.5 text-right align-top">
+                          <Link href={`/dashboard/estimados/${q.id}`} className="text-xs text-accent hover:underline">Ver</Link>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-foreground/12 bg-foreground/2 font-semibold">
+                    <td className="px-3 py-2.5 text-xs uppercase tracking-wider text-foreground/45">Total</td>
+                    <td />
+                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-700">{fmtMoney(serviceRevenue)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-foreground/45">{fmtMoney(salesTaxCollected)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-rose-700">
+                      −{fmtMoney(periodPaidQuotes.reduce((s, q) => s + (projectExpenseByQuote.get(q.id) ?? 0), 0))}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {fmtMoney(serviceRevenue - periodPaidQuotes.reduce((s, q) => s + (projectExpenseByQuote.get(q.id) ?? 0), 0))}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+        <p className="mt-2 text-[11px] text-foreground/45">
+          Para ligar un gasto a un trabajo: regístralo como <b>Gasto en proyecto</b> y elige el estimado correspondiente.
+        </p>
       </div>
 
       {/* Transactions list */}

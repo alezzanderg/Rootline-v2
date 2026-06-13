@@ -105,6 +105,7 @@ enum OperatingTxnType {
   PARTNER_REIMBURSEMENT
   COMPANY_EXPENSE
   PROJECT_EXPENSE
+  SALES_TAX_REMITTANCE
 }
 
 model Partner {
@@ -131,6 +132,8 @@ model OperatingTransaction {
   vendor        String?
   invoiceNumber String?
   receiptUrl    String?
+  /** Whether this moved real cash through the company bank account (false = in-kind, e.g. a partner paying a vendor directly) */
+  affectsCash   Boolean          @default(true)
   partnerId     String?
   jobId         String?
   quoteId       String?

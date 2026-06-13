@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { localizedPath } from "@/lib/locale-path"
 import { marketingImages } from "@/lib/marketing-images"
 
 type Locale = "en" | "es"
@@ -56,7 +57,7 @@ export function Hero({ locale = "en" }: { locale?: Locale }) {
             <p className="text-primary-foreground/80 text-lg sm:text-xl max-w-xl mx-auto lg:mx-0 mb-8 leading-relaxed">{t.desc}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-lg px-8 py-6" asChild>
-                <Link href="#contact">
+                <Link href={localizedPath("/request-service", locale)}>
                   {t.ctaPrimary}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>

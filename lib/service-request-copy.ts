@@ -1,0 +1,54 @@
+export type ServiceRequestLocale = "en" | "es"
+
+export const serviceRequestCopy = {
+  en: {
+    trigger: "Request our services",
+    title: "Request our services",
+    subtitle: "Tell us what you need and we will get back to you soon.",
+    firstName: "First name",
+    lastName: "Last name",
+    address: "Property address",
+    email: "Email",
+    phone: "Phone",
+    subject: "Service needed",
+    subjectPlaceholder: "Select a service…",
+    message: "Message",
+    submit: "Send request",
+    sending: "Sending…",
+    successTitle: "Request received",
+    successText: "Thank you. We will contact you shortly.",
+    close: "Close",
+    errors: {
+      missing: "Please fill in all required fields.",
+      invalid_email: "Enter a valid email address.",
+      invalid_phone: "Enter a valid 10-digit phone number.",
+      invalid_address: "Select a complete New Jersey address from the suggestions.",
+    },
+  },
+  es: {
+    trigger: "Solicitar servicios",
+    title: "Solicitar servicios",
+    subtitle: "Cuéntanos qué necesitas y te contactaremos pronto.",
+    firstName: "Nombre",
+    lastName: "Apellido",
+    address: "Dirección de la propiedad",
+    email: "Correo electrónico",
+    phone: "Teléfono",
+    subject: "Servicio que necesitas",
+    subjectPlaceholder: "Selecciona un servicio…",
+    message: "Mensaje",
+    submit: "Enviar solicitud",
+    sending: "Enviando…",
+    successTitle: "Solicitud recibida",
+    successText: "Gracias. Te contactaremos en breve.",
+    close: "Cerrar",
+    errors: {
+      missing: "Completa todos los campos obligatorios.",
+      invalid_email: "Ingresa un correo electrónico válido.",
+      invalid_phone: "Ingresa un teléfono válido de 10 dígitos.",
+      invalid_address: "Selecciona una dirección completa de New Jersey en las sugerencias.",
+    },
+  },
+} as const
+
+export type ServiceRequestError = keyof (typeof serviceRequestCopy)["en"]["errors"]

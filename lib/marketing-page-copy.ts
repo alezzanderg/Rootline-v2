@@ -49,3 +49,24 @@ export const serviceAreasPageCopy = {
     body: "Explora tu ciudad abajo para ver paginas locales de corte de cesped, limpieza de hojas, remocion de nieve y mantenimiento. Cada enlace incluye servicios en tu zona y preguntas frecuentes locales.",
   },
 } as const
+
+export const requestServicePageCopy = {
+  en: {
+    metaTitle: "Request Our Services | Free Estimate | Rootline Landscaping",
+    metaDescription:
+      "Request lawn care, mowing, seasonal cleanup, leaf removal, or snow service from Rootline Landscaping. Serving Hudson County and select Bergen County, NJ communities.",
+    breadcrumb: "Request Services",
+    h1: "Request Our Services",
+    lead: "Tell us about your property and what you need. We will review your request and get back to you with next steps — usually within one business day.",
+    body: "Include your New Jersey property address and the type of service you are looking for. We serve homeowners, landlords, and small residential properties across Hudson County and select Bergen County towns.",
+  },
+  es: {
+    metaTitle: "Solicitar servicios | Estimado gratis | Rootline Landscaping",
+    metaDescription:
+      "Solicita cuidado de césped, corte, limpieza estacional, retiro de hojas o servicio de nieve con Rootline Landscaping. Atendemos Hudson County y zonas selectas de Bergen County, NJ.",
+    breadcrumb: "Solicitar servicios",
+    h1: "Solicitar nuestros servicios",
+    lead: "Cuéntanos sobre tu propiedad y lo que necesitas. Revisaremos tu solicitud y te contactaremos con los siguientes pasos — normalmente en un día hábil.",
+    body: "Incluye la dirección de tu propiedad en New Jersey y el tipo de servicio que buscas. Atendemos propietarios, arrendadores y propiedades residenciales pequeñas en Hudson County y ciudades selectas de Bergen County.",
+  },
+} as const

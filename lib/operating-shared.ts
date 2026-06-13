@@ -6,6 +6,7 @@ export type OperatingTxnType =
   | "PARTNER_REIMBURSEMENT"
   | "COMPANY_EXPENSE"
   | "PROJECT_EXPENSE"
+  | "SALES_TAX_REMITTANCE"
 
 export type TxnDirection = "in" | "out"
 
@@ -64,6 +65,15 @@ export const OPERATING_TYPE_META: Record<OperatingTxnType, TypeMeta> = {
     needsJob: true,
     isExpense: true,
     accent: "border-amber-500/35 bg-amber-50 text-amber-800",
+  },
+  SALES_TAX_REMITTANCE: {
+    label: "Remisión de Sales Tax al estado",
+    short: "Sales tax remitido",
+    direction: "out",
+    needsPartner: false,
+    needsJob: false,
+    isExpense: false,
+    accent: "border-amber-600/35 bg-amber-50 text-amber-800",
   },
 }
 

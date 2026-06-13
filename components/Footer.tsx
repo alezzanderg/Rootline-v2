@@ -70,7 +70,7 @@ export function Footer({ locale = "en" }: { locale?: Locale }) {
   const t = copy[locale]
   const home = localizedPath("/", locale)
   const servicesHref = `${home}#services`
-  const contactHref = `${home}#contact`
+  const contactHref = localizedPath("/request-service", locale)
 
   return (
     <footer className="bg-[#151515] text-[#E7E2D6]">

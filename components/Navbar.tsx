@@ -41,7 +41,7 @@ export function Navbar({ locale = "en" }: { locale?: Locale }) {
   const onHome = pathname === homePath
   const servicesHref = onHome ? "#services" : `${homePath}#services`
   const aboutHref = onHome ? "#about" : localizedPath("/about", locale)
-  const contactHref = onHome ? "#contact" : `${homePath}#contact`
+  const quoteHref = localizedPath("/request-service", locale)
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-secondary">
@@ -71,7 +71,7 @@ export function Navbar({ locale = "en" }: { locale?: Locale }) {
               {t.about}
             </Link>
             <Button className="bg-accent hover:bg-accent/90 text-accent-foreground font-semibold" asChild>
-              <Link href={contactHref}>{t.quote}</Link>
+              <Link href={quoteHref}>{t.quote}</Link>
             </Button>
             <Link
               href={targetLocaleHref}
@@ -100,7 +100,7 @@ export function Navbar({ locale = "en" }: { locale?: Locale }) {
               {t.about}
             </Link>
             <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-semibold" asChild>
-              <Link href={contactHref} onClick={() => setIsOpen(false)}>{t.quote}</Link>
+              <Link href={quoteHref} onClick={() => setIsOpen(false)}>{t.quote}</Link>
             </Button>
             <Link
               href={targetLocaleHref}

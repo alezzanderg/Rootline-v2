@@ -64,6 +64,7 @@ export default async function EditarMovimientoPage({ params }: Props) {
           vendor: txn.vendor,
           invoiceNumber: txn.invoiceNumber,
           receiptUrl: txn.receiptUrl,
+          affectsCash: txn.affectsCash,
           partnerId: txn.partnerId,
           jobId: txn.jobId,
           quoteId: txn.quoteId,

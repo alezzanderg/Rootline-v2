@@ -3,9 +3,13 @@ import Link from "next/link"
 import { OperatingTransactionForm, type ProjectOption } from "@/components/ui/OperatingTransactionForm"
 import { createTransactionAction } from "@/lib/operating-actions"
 import { prisma } from "@/lib/prisma"
-import { fmtDate, fmtMoney } from "@/lib/operating-shared"
+import { fmtDate, fmtMoney, normalizeOperatingType } from "@/lib/operating-shared"
 
-export default async function NuevoMovimientoPage() {
+type Props = { searchParams?: Promise<{ type?: string }> }
+
+export default async function NuevoMovimientoPage({ searchParams }: Props) {
+  const sp = (await searchParams) ?? {}
+  const presetType = normalizeOperatingType(sp.type ?? "")
   const [partners, quotes, jobs] = await Promise.all([
     prisma.partner.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.quote.findMany({
@@ -52,7 +56,12 @@ export default async function NuevoMovimientoPage() {
         </p>
       ) : null}
 
-      <OperatingTransactionForm action={createTransactionAction} partners={partnerOptions} projects={projectOptions} />
+      <OperatingTransactionForm
+        action={createTransactionAction}
+        partners={partnerOptions}
+        projects={projectOptions}
+        initial={presetType ? { type: presetType } : undefined}
+      />
     </section>
   )
 }
