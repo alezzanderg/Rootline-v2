@@ -5,6 +5,7 @@ import { ArrowRight, Phone, Mail, MapPin } from "lucide-react"
 import { ServiceRequestDialog } from "@/components/ServiceRequestDialog"
 import { Button } from "@/components/ui/button"
 import { marketingImages } from "@/lib/marketing-images"
+import { serviceAreaCopy } from "@/lib/service-area-config"
 
 const PHONE_DISPLAY = "(551) 333-5296"
 const PHONE_TEL = "+15513335296"
@@ -20,7 +21,7 @@ const copy = {
     contact: "GET IN TOUCH",
     phoneLabel: "Phone",
     areaLabel: "Service Area",
-    areaValue: "Bergen County and Hudson County",
+    areaValue: serviceAreaCopy.en.headline,
   },
   es: {
     title: "LISTO PARA MEJORAR TU PATIO?",
@@ -30,7 +31,7 @@ const copy = {
     contact: "CONTACTO",
     phoneLabel: "Teléfono",
     areaLabel: "Area de servicio",
-    areaValue: "Bergen County y Hudson County",
+    areaValue: serviceAreaCopy.es.headline,
   },
 } as const
 

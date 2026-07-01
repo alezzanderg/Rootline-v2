@@ -11,12 +11,12 @@ const copy = {
   en: {
     tag: "Questions",
     title: "FREQUENTLY ASKED QUESTIONS",
-    subtitle: "Common questions about our lawn care services in Hudson County",
+    subtitle: "Common questions about our lawn care services in Bergen County",
   },
   es: {
     tag: "Preguntas",
     title: "PREGUNTAS FRECUENTES",
-    subtitle: "Preguntas comunes sobre nuestros servicios de cesped en Hudson County",
+    subtitle: "Preguntas comunes sobre nuestros servicios de cesped en Bergen County",
   },
 } as const
 

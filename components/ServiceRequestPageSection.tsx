@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Mail, MapPin, Phone } from "lucide-react"
 
 import { ServiceRequestForm } from "@/components/ServiceRequestForm"
+import { serviceAreaCopy } from "@/lib/service-area-config"
 import { serviceRequestCopy, type ServiceRequestLocale } from "@/lib/service-request-copy"
 
 const PHONE_DISPLAY = "(551) 333-5296"
@@ -15,7 +16,7 @@ const sidebarCopy = {
     phoneLabel: "Phone",
     emailLabel: "Email",
     areaLabel: "Service area",
-    areaValue: "Bergen County and Hudson County",
+    areaValue: serviceAreaCopy.en.headline,
     note: "We typically respond within one business day.",
   },
   es: {
@@ -23,7 +24,7 @@ const sidebarCopy = {
     phoneLabel: "Teléfono",
     emailLabel: "Correo",
     areaLabel: "Área de servicio",
-    areaValue: "Bergen County y Hudson County",
+    areaValue: serviceAreaCopy.es.headline,
     note: "Normalmente respondemos en un día hábil.",
   },
 } as const

@@ -2,61 +2,23 @@ import Link from "next/link"
 import { MapPin } from "lucide-react"
 
 import { localizedPath, type Locale } from "@/lib/locale-path"
+import { BERGEN_LOCATION_SLUGS, serviceAreaCopy } from "@/lib/service-area-config"
 import { locations, type LocationKey } from "@/lib/services-data"
 
 const DEFAULT_SERVICE = "lawn-care" as const
-
-const hudsonSlugs: LocationKey[] = [
-  "hudson-county-nj",
-  "union-city-nj",
-  "jersey-city-nj",
-  "hoboken-nj",
-  "north-bergen-nj",
-  "west-new-york-nj",
-  "weehawken-nj",
-  "secaucus-nj",
-  "kearny-nj",
-  "bayonne-nj",
-]
-
-const bergenSlugs: LocationKey[] = [
-  "bergen-county-nj",
-  "teaneck-nj",
-  "garfield-nj",
-  "fair-lawn-nj",
-  "bergenfield-nj",
-  "paramus-nj",
-  "tenafly-nj",
-  "westwood-nj",
-  "englewood-nj",
-  "hillsdale-nj",
-  "ridgewood-nj",
-]
 
 const copy = {
   en: {
     tag: "Where We Work",
     title: "SERVICE AREAS",
-    subtitle:
-      "Serving Hudson County and nearby North Jersey communities, including select areas of Bergen County.",
-    hudsonLabel: "Hudson County, NJ",
-    hudsonBadge: "Primary Service Area",
-    bergenLabel: "Bergen County, NJ",
-    bergenBadge: "Select Areas",
   },
   es: {
     tag: "Donde trabajamos",
     title: "ZONAS DE SERVICIO",
-    subtitle:
-      "Servimos Hudson County y comunidades cercanas del norte de New Jersey, incluyendo zonas selectas de Bergen County.",
-    hudsonLabel: "Hudson County, NJ",
-    hudsonBadge: "Zona principal",
-    bergenLabel: "Bergen County, NJ",
-    bergenBadge: "Zonas selectas",
   },
 } as const
 
-function AreaList({ slugs, locale }: { slugs: LocationKey[]; locale: Locale }) {
+function AreaList({ slugs, locale }: { slugs: readonly LocationKey[]; locale: Locale }) {
   return (
     <ul className="mt-5 flex flex-wrap gap-2">
       {slugs.map((slug, index) => {
@@ -91,6 +53,7 @@ export function ServiceAreas({
   variant?: "home" | "page"
 }) {
   const t = copy[locale]
+  const area = serviceAreaCopy[locale]
   const sectionClass =
     variant === "page"
       ? "bg-background py-16 md:py-20"
@@ -102,29 +65,17 @@ export function ServiceAreas({
         <div className="mb-14 text-center">
           <p className="mb-4 font-semibold tracking-wider text-accent uppercase">{t.tag}</p>
           <h2 className="font-[var(--font-heading)] text-4xl text-foreground sm:text-5xl">{t.title}</h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-foreground/70">{t.subtitle}</p>
+          <p className="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-foreground/70">{area.headline}</p>
         </div>
 
-        <div className="grid gap-10 lg:grid-cols-2">
-          <div className="rounded-xl border border-foreground/10 bg-card p-6 sm:p-8">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="font-[var(--font-heading)] text-xl text-foreground sm:text-2xl">{t.hudsonLabel}</h3>
-              <span className="rounded-full bg-primary/15 px-3 py-0.5 text-xs font-semibold tracking-wide text-primary uppercase">
-                {t.hudsonBadge}
-              </span>
-            </div>
-            <AreaList slugs={hudsonSlugs} locale={locale} />
+        <div className="mx-auto max-w-3xl rounded-xl border border-foreground/10 bg-card p-6 sm:p-8">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="font-[var(--font-heading)] text-xl text-foreground sm:text-2xl">{area.shortLabel}</h3>
+            <span className="rounded-full bg-primary/15 px-3 py-0.5 text-xs font-semibold tracking-wide text-primary uppercase">
+              {area.badge}
+            </span>
           </div>
-
-          <div className="rounded-xl border border-foreground/10 bg-card p-6 sm:p-8">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 className="font-[var(--font-heading)] text-xl text-foreground sm:text-2xl">{t.bergenLabel}</h3>
-              <span className="rounded-full border border-foreground/15 px-3 py-0.5 text-xs font-semibold tracking-wide text-foreground/55 uppercase">
-                {t.bergenBadge}
-              </span>
-            </div>
-            <AreaList slugs={bergenSlugs} locale={locale} />
-          </div>
+          <AreaList slugs={BERGEN_LOCATION_SLUGS} locale={locale} />
         </div>
       </div>
     </section>

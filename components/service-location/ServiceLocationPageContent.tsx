@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import type { Locale } from "@/lib/locale-path"
 import { localizedPath } from "@/lib/locale-path"
+import { isActiveLocation, serviceAreaCopy } from "@/lib/service-area-config"
 import {
   getCountyLabel,
   getLocation,
@@ -41,7 +42,7 @@ const ui = {
     snowScheduling: "Winter storm availability for snow service.",
     weeklyScheduling: "Weekly, bi-weekly, and seasonal service options available.",
     localService: "Local Service",
-    localServiceDesc: (county: string) => `Based in Union City, serving ${county} and nearby areas.`,
+    localServiceDesc: () => serviceAreaCopy.en.headline,
     cleanWork: "Clean Work",
     cleanWorkDesc: "Professional appearance and clean results every time.",
     faq: "Frequently Asked Questions",
@@ -65,7 +66,7 @@ const ui = {
     snowScheduling: "Disponibilidad en tormentas de invierno.",
     weeklyScheduling: "Opciones semanales, quincenales y estacionales.",
     localService: "Servicio local",
-    localServiceDesc: (county: string) => `Con base en Union City, servimos ${county} y zonas cercanas.`,
+    localServiceDesc: () => serviceAreaCopy.es.headline,
     cleanWork: "Trabajo limpio",
     cleanWorkDesc: "Resultados profesionales y prolijos en cada visita.",
     faq: "Preguntas frecuentes",
@@ -93,7 +94,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
   const mainServicesList = getMainServices(locale)
   const pageTitle = getServiceLocationTitle(service, location, locale)
   const countyLabel = getCountyLabel(baseLocation.county, locale)
-  const nearbyLocations = getNearbyLocations(location)
+  const nearbyLocations = getNearbyLocations(location).filter(({ slug }) => isActiveLocation(slug))
   const isSnowRemoval = service === "snow-removal"
   const contactHref = `${localizedPath("/", locale)}#contact`
 
@@ -258,7 +259,7 @@ export function ServiceLocationPageContent({ service, location, locale }: Props)
                   <MapPin className="h-7 w-7 text-primary" />
                 </div>
                 <h3 className="mb-2 text-lg font-semibold text-foreground">{t.localService}</h3>
-                <p className="text-sm text-muted-foreground">{t.localServiceDesc(countyLabel)}</p>
+                <p className="text-sm text-muted-foreground">{t.localServiceDesc()}</p>
               </div>
 
               <div className="text-center">

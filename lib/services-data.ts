@@ -300,7 +300,7 @@ Kearny property owners choose Rootline Landscaping because we show up when sched
       { q: "Do you provide leaf cleanup in Bayonne?", a: "Yes, we offer fall leaf cleanup services in Bayonne." },
     ],
   },
-  // Bergen County - Secondary Service Area
+  // Bergen County - Active Service Area
   "bergen-county-nj": {
     name: "Bergen County",
     state: "NJ",
@@ -308,13 +308,13 @@ Kearny property owners choose Rootline Landscaping because we show up when sched
     fullName: "Bergen County, New Jersey",
     zip: "07666",
     coordinates: { lat: 40.8876, lng: -74.0159 },
-    isPrimary: false,
-    intro: `Rootline Landscaping serves select areas of Bergen County, NJ in addition to our primary Hudson County service area. We provide lawn mowing, trimming, edging, seasonal cleanups, leaf removal, and property maintenance for Bergen County properties. Contact us to confirm service availability in your Bergen County location.`,
+    isPrimary: true,
+    intro: `Rootline Landscaping proudly serves Bergen County, NJ with professional lawn care and property maintenance services. Serving Paramus, Ridgewood, Pascack Valley, Northern Valley, South Bergen, and surrounding North Jersey areas. We provide reliable lawn mowing, trimming, edging, seasonal cleanups, leaf removal, and snow service for Bergen County homeowners, landlords, and small commercial properties.`,
     whoWeServe: ["Homeowners", "Landlords", "Small commercial properties"],
-    nearby: ["teaneck-nj", "garfield-nj", "fair-lawn-nj", "bergenfield-nj"],
+    nearby: ["teaneck-nj", "garfield-nj", "fair-lawn-nj", "bergenfield-nj", "paramus-nj", "ridgewood-nj"],
     faqs: [
-      { q: "Do you serve Bergen County, NJ?", a: "Yes, we serve select areas of Bergen County in addition to our primary Hudson County service area. Contact us to confirm availability." },
-      { q: "Do you offer lawn mowing in Bergen County?", a: "Yes, we provide lawn mowing services in select Bergen County communities." },
+      { q: "Do you serve Bergen County, NJ?", a: "Yes. We serve Paramus, Ridgewood, Pascack Valley, Northern Valley, South Bergen, and surrounding North Jersey areas in Bergen County." },
+      { q: "Do you offer lawn mowing in Bergen County?", a: "Yes, we provide professional lawn mowing, trimming, edging, and blowing services throughout Bergen County." },
     ],
   },
   "teaneck-nj": {
@@ -482,7 +482,7 @@ export const businessInfo = {
   website: "https://www.rootlinenj.com",
   websiteDisplay: "rootlinenj.com",
   location: "Union City, NJ",
-  county: "Hudson County, NJ",
+  county: "Bergen County, NJ",
   hours: "Reliable Scheduling",
   hoursDescription: "Weekly, bi-weekly, and seasonal service options available",
   mainCategory: "Lawn care service",
@@ -517,7 +517,7 @@ export function getAllServicePages() {
 export function getNearbyLocations(locationKey: LocationKey) {
   const location = locations[locationKey]
   if (!location || !location.nearby) return []
-  
+
   const result: { slug: LocationKey; name: string }[] = []
 
   for (const slug of location.nearby) {

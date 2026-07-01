@@ -29,7 +29,7 @@ export function buildSiteManifest(): MetadataRoute.Manifest {
     name: "Rootline Landscaping",
     short_name: "Rootline",
     description:
-      "Lawn care, mowing, trimming, and property maintenance in Hudson County, NJ and North Jersey.",
+      "Lawn care, mowing, trimming, and property maintenance in Bergen County, NJ and North Jersey.",
     start_url: "/",
     display: "browser",
     background_color: "#000000",

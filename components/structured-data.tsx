@@ -1,4 +1,5 @@
 import { businessInfo } from "@/lib/services-data"
+import { serviceAreaCopy } from "@/lib/service-area-config"
 import { absoluteUrl, getSiteUrl } from "@/lib/site-config"
 
 import { marketingImages } from "@/lib/marketing-images"
@@ -19,12 +20,11 @@ function buildLocalBusinessSchema() {
     name: businessInfo.name,
     alternateName: [
       "Rootline Landscaping NJ",
-      "Rootline Landscaping Hudson County",
-      "Rootline Landscaping Union City",
+      "Rootline Landscaping Bergen County",
+      "Rootline Landscaping North Jersey",
     ],
-    slogan: "Good roots. Great spaces. — Hudson County, New Jersey",
-    description:
-      "Rootline Landscaping provides lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and year-round property maintenance in Hudson County, NJ and nearby North Jersey areas. Based in Union City — not affiliated with other Rootline Landscaping businesses outside New Jersey.",
+    slogan: "Good roots. Great spaces. — Bergen County, New Jersey",
+    description: serviceAreaCopy.en.headline,
     url: siteUrl,
     telephone: businessInfo.phoneTel,
     email: businessInfo.email,
@@ -66,58 +66,58 @@ function buildLocalBusinessSchema() {
     areaServed: [
       {
         "@type": "AdministrativeArea",
-        name: "Hudson County",
-        sameAs: "https://en.wikipedia.org/wiki/Hudson_County,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Union City",
-        sameAs: "https://en.wikipedia.org/wiki/Union_City,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Jersey City",
-        sameAs: "https://en.wikipedia.org/wiki/Jersey_City,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Hoboken",
-        sameAs: "https://en.wikipedia.org/wiki/Hoboken,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "North Bergen",
-        sameAs: "https://en.wikipedia.org/wiki/North_Bergen,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "West New York",
-        sameAs: "https://en.wikipedia.org/wiki/West_New_York,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Weehawken",
-        sameAs: "https://en.wikipedia.org/wiki/Weehawken,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Secaucus",
-        sameAs: "https://en.wikipedia.org/wiki/Secaucus,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Kearny",
-        sameAs: "https://en.wikipedia.org/wiki/Kearny,_New_Jersey",
-      },
-      {
-        "@type": "City",
-        name: "Bayonne",
-        sameAs: "https://en.wikipedia.org/wiki/Bayonne,_New_Jersey",
-      },
-      {
-        "@type": "AdministrativeArea",
         name: "Bergen County",
         sameAs: "https://en.wikipedia.org/wiki/Bergen_County,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Paramus",
+        sameAs: "https://en.wikipedia.org/wiki/Paramus,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Ridgewood",
+        sameAs: "https://en.wikipedia.org/wiki/Ridgewood,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Teaneck",
+        sameAs: "https://en.wikipedia.org/wiki/Teaneck,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Fair Lawn",
+        sameAs: "https://en.wikipedia.org/wiki/Fair_Lawn,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Englewood",
+        sameAs: "https://en.wikipedia.org/wiki/Englewood,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Garfield",
+        sameAs: "https://en.wikipedia.org/wiki/Garfield,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Bergenfield",
+        sameAs: "https://en.wikipedia.org/wiki/Bergenfield,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Tenafly",
+        sameAs: "https://en.wikipedia.org/wiki/Tenafly,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Westwood",
+        sameAs: "https://en.wikipedia.org/wiki/Westwood,_New_Jersey",
+      },
+      {
+        "@type": "City",
+        name: "Hillsdale",
+        sameAs: "https://en.wikipedia.org/wiki/Hillsdale,_New_Jersey",
       },
     ],
     hasOfferCatalog: {
@@ -199,8 +199,7 @@ export function WebsiteSchema() {
     "@id": `${siteUrl}/#website`,
     name: businessInfo.name,
     url: siteUrl,
-    description:
-      "Lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and property maintenance in Hudson County, NJ and nearby North Jersey areas.",
+    description: serviceAreaCopy.en.headline,
     inLanguage: ["en-US", "es-US"],
     publisher: {
       "@id": `${siteUrl}/#business`,

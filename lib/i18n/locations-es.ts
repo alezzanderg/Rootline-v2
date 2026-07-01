@@ -352,7 +352,7 @@ Los propietarios en Kearny eligen Rootline Landscaping porque llegamos según lo
     ],
   },
   "bergen-county-nj": {
-    intro: `Rootline Landscaping atiende zonas selectas del condado de Bergen, NJ, además de nuestra área principal de servicio en el condado de Hudson. Ofrecemos corte de césped, recorte, bordeado, limpiezas estacionales, retiro de hojas y mantenimiento de propiedad para inmuebles en el condado de Bergen. Contáctanos para confirmar disponibilidad de servicio en tu ubicación del condado de Bergen.`,
+    intro: `Rootline Landscaping atiende con orgullo Bergen County, NJ con cuidado de césped y mantenimiento de propiedad profesional. Atendemos Paramus, Ridgewood, Pascack Valley, Northern Valley, South Bergen y zonas del norte de New Jersey. Ofrecemos corte de césped, recorte, bordeado, limpiezas estacionales, retiro de hojas y servicio de nieve para propietarios, arrendadores y pequeñas propiedades comerciales en Bergen County.`,
     whoWeServe: [
       "Propietarios de vivienda",
       "Arrendadores",
@@ -361,11 +361,11 @@ Los propietarios en Kearny eligen Rootline Landscaping porque llegamos según lo
     faqs: [
       {
         q: "¿Atienden el condado de Bergen, NJ?",
-        a: "Sí, atendemos zonas selectas del condado de Bergen además de nuestra área principal en el condado de Hudson. Contáctanos para confirmar disponibilidad.",
+        a: "Sí. Atendemos Paramus, Ridgewood, Pascack Valley, Northern Valley, South Bergen y zonas del norte de New Jersey en Bergen County.",
       },
       {
         q: "¿Ofrecen corte de césped en el condado de Bergen?",
-        a: "Sí, ofrecemos corte de césped en comunidades selectas del condado de Bergen.",
+        a: "Sí, ofrecemos corte de césped, recorte, bordeado y soplado profesional en todo Bergen County.",
       },
     ],
   },

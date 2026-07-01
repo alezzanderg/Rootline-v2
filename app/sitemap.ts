@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next"
 
-import { getAllServicePages } from "@/lib/services-data"
+import { getActiveServicePages } from "@/lib/service-area-config"
 import { getSiteUrl } from "@/lib/site-config"
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -38,7 +38,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ]),
   ]
 
-  const serviceLocationPages: MetadataRoute.Sitemap = getAllServicePages().flatMap(({ service, location }) => [
+  const serviceLocationPages: MetadataRoute.Sitemap = getActiveServicePages().flatMap(({ service, location }) => [
     {
       url: `${baseUrl}/${service}/${location}`,
       lastModified: currentDate,
