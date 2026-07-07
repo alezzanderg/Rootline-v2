@@ -178,6 +178,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   customer Customer?
+  emailSignature EmailSignature?
 }
 
 model Customer {
@@ -432,6 +433,7 @@ model Employee {
   updatedAt    DateTime @updatedAt
 
   assignments JobAssignment[]
+  emailSignature EmailSignature?
 }
 
 model Job {
@@ -579,4 +581,77 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+enum EmailTemplateCategory {
+  ESTIMATE
+  INQUIRY
+  GENERAL
+}
+
+enum EmailTemplateLocale {
+  EN
+  ES
+}
+
+model EmailTemplate {
+  id          String                @id @default(uuid())
+  name        String
+  category    EmailTemplateCategory @default(GENERAL)
+  locale      EmailTemplateLocale   @default(EN)
+  /** Stable id for built-in defaults, e.g. estimate-send */
+  slug        String?
+  subject     String
+  htmlBody    String                @db.Text
+  description String?
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  sends EmailSendLog[]
+
+  @@unique([slug, locale])
+  @@index([category, locale, active])
+}
+
+model EmailSendLog {
+  id           String   @id @default(uuid())
+  templateId   String?
+  signatureId  String?
+  toEmail      String
+  toName       String?
+  subject      String
+  status       String
+  resendId     String?
+  errorMessage String?
+  quoteId      String?
+  inquiryId    String?
+  customerId   String?
+  createdAt    DateTime @default(now())
+
+  template  EmailTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  signature EmailSignature? @relation(fields: [signatureId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([toEmail])
+}
+
+model EmailSignature {
+  id         String              @id @default(uuid())
+  employeeId String?             @unique
+  userId     String?             @unique
+  fullName   String
+  jobTitle   String?
+  phone      String?
+  email      String
+  locale     EmailTemplateLocale @default(EN)
+  /** When set, replaces the auto-generated signature HTML */
+  htmlBody   String?             @db.Text
+  active     Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  employee Employee?      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user     User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sends    EmailSendLog[]
 }

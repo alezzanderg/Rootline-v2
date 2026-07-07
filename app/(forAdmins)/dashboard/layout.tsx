@@ -2,22 +2,13 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 import AdminDashboardShell from "./AdminDashboardShell"
+import { ADMIN_SESSION_COOKIE, getAdminSessionUser } from "@/lib/admin-session"
 import { prisma } from "@/lib/prisma"
 
 export default async function AdminDashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const cookieStore = await cookies()
-  const sessionUserId = cookieStore.get("admin_session")?.value
-
-  if (!sessionUserId) {
-    redirect("/auth")
-  }
-
-  const sessionUser = await prisma.user.findUnique({
-    where: { id: sessionUserId },
-    select: { id: true, isActive: true, firstName: true, lastName: true, email: true },
-  })
+  const sessionUser = await getAdminSessionUser()
 
   if (!sessionUser || !sessionUser.isActive) {
     redirect("/auth")
@@ -47,7 +38,7 @@ export default async function AdminDashboardLayout({
   async function signOutAction() {
     "use server"
     const store = await cookies()
-    store.delete("admin_session")
+    store.delete(ADMIN_SESSION_COOKIE)
     redirect("/auth")
   }
 

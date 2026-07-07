@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
-import { tryCreateMercuryInvoiceAfterAcceptance } from "@/app/actions/mercury-payment"
-import { tryCreateStripeCheckoutAfterAcceptance } from "@/app/actions/stripe-payment"
+import {
+  tryCreateMercuryInvoiceAfterAcceptance,
+  tryCreateStripeCheckoutAfterAcceptance,
+} from "@/lib/payments/post-acceptance"
 import { getTaxRatePercent } from "@/lib/app-settings"
 import { getPublicQuotePath } from "@/lib/quote-document"
 import { assignMembershipFromQuoteIfNeeded } from "@/lib/quote-membership"

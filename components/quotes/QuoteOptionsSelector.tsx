@@ -85,6 +85,7 @@ function OptionRow({
 
 export function QuoteOptionsSelector({
   quoteId,
+  publicToken = null,
   interactive,
   showUnselected = true,
   groups,
@@ -92,6 +93,8 @@ export function QuoteOptionsSelector({
   taxRatePercent,
 }: {
   quoteId: string
+  /** Authorizes selection changes from the public quote page (admins rely on their session). */
+  publicToken?: string | null
   interactive: boolean
   showUnselected?: boolean
   groups: QuoteDocumentOptionGroup[]
@@ -104,6 +107,7 @@ export function QuoteOptionsSelector({
     const fd = new FormData()
     fd.set("quoteId", quoteId)
     fd.set("itemId", itemId)
+    if (publicToken) fd.set("token", publicToken)
     startTransition(async () => {
       await action(fd)
     })

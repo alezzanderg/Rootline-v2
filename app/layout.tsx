@@ -131,8 +131,9 @@ export default function RootLayout({
       lang="en"
       data-scroll-behavior="smooth"
       className={`${display.variable} ${body.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col font-sans">
+      <body className="flex min-h-full flex-col font-sans" suppressHydrationWarning>
         {children}
         <LocalBusinessSchema />
         <WebsiteSchema />

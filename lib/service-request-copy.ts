@@ -23,6 +23,7 @@ export const serviceRequestCopy = {
       invalid_email: "Enter a valid email address.",
       invalid_phone: "Enter a valid 10-digit phone number.",
       invalid_address: "Select a complete New Jersey address from the suggestions.",
+      rate_limited: "Too many requests from your connection. Please try again in a few minutes.",
     },
   },
   es: {
@@ -47,6 +48,7 @@ export const serviceRequestCopy = {
       invalid_email: "Ingresa un correo electrónico válido.",
       invalid_phone: "Ingresa un teléfono válido de 10 dígitos.",
       invalid_address: "Selecciona una dirección completa de New Jersey en las sugerencias.",
+      rate_limited: "Demasiadas solicitudes desde tu conexión. Intenta de nuevo en unos minutos.",
     },
   },
 } as const

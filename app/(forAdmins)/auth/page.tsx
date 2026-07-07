@@ -7,6 +7,7 @@ type AuthPageProps = {
     error?: string
     mode?: string
     email?: string
+    invite?: string
   }>
 }
 
@@ -15,6 +16,7 @@ export default async function AdminSignInPage({ searchParams }: AuthPageProps) {
   const error = params.error
   const mode = params.mode === "setup" ? "setup" : "signin"
   const prefilledEmail = params.email ?? ""
+  const invite = params.invite ?? ""
 
   return (
     <section className="mx-auto w-full max-w-md text-foreground">
@@ -36,6 +38,9 @@ export default async function AdminSignInPage({ searchParams }: AuthPageProps) {
           {error === "invalid" && "Invalid email or password."}
           {error === "short" && "Password must be at least 8 characters."}
           {error === "mismatch" && "Password confirmation does not match."}
+          {error === "rate" && "Too many attempts. Wait a few minutes and try again."}
+          {error === "invite" &&
+            "Setting a password requires a valid invite link. Ask an administrator to generate one for you."}
           {error === "config" &&
             "Database is not configured on the server. Add DATABASE_URL in Vercel → Settings → Environment Variables."}
           {error === "server" &&
@@ -45,6 +50,7 @@ export default async function AdminSignInPage({ searchParams }: AuthPageProps) {
 
       <form action={signInAction} className="mt-8 space-y-5 rounded-xl border border-foreground/10 bg-background p-6">
         <input type="hidden" name="mode" value={mode} />
+        {invite ? <input type="hidden" name="invite" value={invite} /> : null}
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
             Email

@@ -62,9 +62,9 @@ async function main() {
       where: { id: user.id },
       data: { passwordHash: null },
     })
-    console.log(`Password cleared for ${email}`)
-    console.log(`Open: http://localhost:3000/auth?mode=setup&email=${encodeURIComponent(email)}`)
-    console.log("Set a new password (min. 8 characters) on that page.")
+    console.log(`Password cleared for ${email} (active sessions signed out).`)
+    console.log("Generate an invite link so they can set a new password:")
+    console.log(`  npm run admin-invite -- ${email}`)
     return
   }
 
@@ -79,7 +79,7 @@ async function main() {
     data: { passwordHash },
   })
 
-  console.log(`Password updated for ${email}`)
+  console.log(`Password updated for ${email} (active sessions signed out).`)
   console.log("Sign in at: http://localhost:3000/auth")
 }
 

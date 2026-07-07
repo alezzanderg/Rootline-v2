@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import { prisma } from "@/lib/prisma"
 import { normalizeOperatingType, OPERATING_TYPE_META } from "@/lib/operating-shared"
 
@@ -43,6 +44,8 @@ function parseProjectRef(v: FormDataEntryValue | null): { quoteId: string | null
 }
 
 export async function createPartnerAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const name = parseStr(formData.get("name"))
   if (!name) return
   await prisma.partner.create({
@@ -59,6 +62,8 @@ export async function createPartnerAction(formData: FormData) {
 }
 
 export async function updatePartnerAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   const name = parseStr(formData.get("name"))
   if (!id || !name) return
@@ -77,6 +82,8 @@ export async function updatePartnerAction(formData: FormData) {
 }
 
 export async function deletePartnerAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   const confirmDelete = parseStr(formData.get("confirmDelete")) === "on"
   if (!id || !confirmDelete) return
@@ -85,6 +92,8 @@ export async function deletePartnerAction(formData: FormData) {
 }
 
 export async function createTransactionAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const type = normalizeOperatingType(parseStr(formData.get("type")))
   if (!type) return
   const amount = parseOptDecimal(formData.get("amount"))
@@ -117,6 +126,8 @@ export async function createTransactionAction(formData: FormData) {
 }
 
 export async function updateTransactionAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   const type = normalizeOperatingType(parseStr(formData.get("type")))
   if (!id || !type) return
@@ -151,6 +162,8 @@ export async function updateTransactionAction(formData: FormData) {
 }
 
 export async function deleteTransactionAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   if (!id) return
   await prisma.operatingTransaction.delete({ where: { id } })

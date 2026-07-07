@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# personal working files (kept out of git and the published site)
+/_private-assets/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

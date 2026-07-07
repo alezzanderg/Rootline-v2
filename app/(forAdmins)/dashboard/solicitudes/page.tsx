@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ExternalLink, MapPin, UserPlus } from "lucide-react"
+import { ExternalLink, Mail, MapPin, UserPlus } from "lucide-react"
 
 import {
   archiveServiceInquiryAction,
@@ -189,6 +189,13 @@ export default async function SolicitudesPage({ searchParams }: Props) {
                       Añadir como cliente
                     </button>
                   </form>
+                  <Link
+                    href={`/dashboard/correos?inquiry=${active.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/15 px-3 py-1.5 text-xs font-medium text-foreground/65 transition hover:bg-foreground/5"
+                  >
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    Responder por correo
+                  </Link>
                   {active.status !== "ARCHIVED" ? (
                     <form action={archiveServiceInquiryAction}>
                       <input type="hidden" name="id" value={active.id} />

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@/lib/generated/prisma/client"
 import { normalizeToolStatus, parseSpecsText } from "@/lib/tools-shared"
@@ -34,6 +35,8 @@ function specsFromForm(v: FormDataEntryValue | null) {
 }
 
 export async function createToolAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const name = parseStr(formData.get("name"))
   if (!name) return
   await prisma.tool.create({
@@ -61,6 +64,8 @@ export async function createToolAction(formData: FormData) {
 }
 
 export async function updateToolAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   if (!id) return
   const name = parseStr(formData.get("name"))
@@ -92,6 +97,8 @@ export async function updateToolAction(formData: FormData) {
 }
 
 export async function deleteToolAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   const confirmDelete = parseStr(formData.get("confirmDelete")) === "on"
   if (!id || !confirmDelete) return
@@ -101,6 +108,8 @@ export async function deleteToolAction(formData: FormData) {
 }
 
 export async function updateToolStatusAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("toolId"))
   if (!id) return
   const status = normalizeToolStatus(parseStr(formData.get("status")))

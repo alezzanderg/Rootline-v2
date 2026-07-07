@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import { prisma } from "@/lib/prisma"
 import { recalcQuoteTotals } from "@/lib/app-settings"
 
@@ -30,6 +31,21 @@ function normalizeSelectionType(v: string): "SINGLE_SELECT" | "MULTI_SELECT" {
   return v === "MULTI_SELECT" ? "MULTI_SELECT" : "SINGLE_SELECT"
 }
 
+/**
+ * Selection changes are allowed for a signed-in admin, or for the public
+ * customer when they present the quote's public token while it is still SENT.
+ */
+async function canChangeQuoteSelection(quoteId: string, token: string): Promise<boolean> {
+  if (await requireAdminUser()) return true
+  if (!token) return false
+
+  const quote = await prisma.quote.findUnique({
+    where: { id: quoteId },
+    select: { publicToken: true, status: true },
+  })
+  return Boolean(quote?.publicToken) && quote?.publicToken === token && quote?.status === "SENT"
+}
+
 async function revalidateQuote(quoteId: string): Promise<void> {
   const quote = await prisma.quote.findUnique({ where: { id: quoteId }, select: { publicToken: true } })
   revalidatePath(`/dashboard/estimados/${quoteId}`)
@@ -42,6 +58,7 @@ export async function selectQuoteOptionAction(formData: FormData): Promise<void>
   const quoteId = str(formData.get("quoteId"))
   const itemId = str(formData.get("itemId"))
   if (!quoteId || !itemId) return
+  if (!(await canChangeQuoteSelection(quoteId, str(formData.get("token"))))) return
 
   const item = await prisma.quoteItem.findFirst({
     where: { id: itemId, quoteId },
@@ -66,6 +83,7 @@ export async function toggleQuoteAddonAction(formData: FormData): Promise<void> 
   const quoteId = str(formData.get("quoteId"))
   const itemId = str(formData.get("itemId"))
   if (!quoteId || !itemId) return
+  if (!(await canChangeQuoteSelection(quoteId, str(formData.get("token"))))) return
 
   const item = await prisma.quoteItem.findFirst({
     where: { id: itemId, quoteId },
@@ -81,6 +99,8 @@ export async function toggleQuoteAddonAction(formData: FormData): Promise<void> 
 
 /** Admin: configure a line's type/group/flags (Estimate Options builder). */
 export async function updateItemOptionsAction(formData: FormData): Promise<void> {
+  if (!(await requireAdminUser())) return
+
   const quoteId = str(formData.get("quoteId"))
   const itemId = str(formData.get("itemId"))
   if (!quoteId || !itemId) return
@@ -110,6 +130,8 @@ export async function updateItemOptionsAction(formData: FormData): Promise<void>
 }
 
 export async function createOptionGroupAction(formData: FormData): Promise<void> {
+  if (!(await requireAdminUser())) return
+
   const quoteId = str(formData.get("quoteId"))
   const title = str(formData.get("title"))
   if (!quoteId || !title) return
@@ -128,6 +150,8 @@ export async function createOptionGroupAction(formData: FormData): Promise<void>
 }
 
 export async function deleteOptionGroupAction(formData: FormData): Promise<void> {
+  if (!(await requireAdminUser())) return
+
   const quoteId = str(formData.get("quoteId"))
   const groupId = str(formData.get("groupId"))
   if (!quoteId || !groupId) return
@@ -142,6 +166,8 @@ export async function deleteOptionGroupAction(formData: FormData): Promise<void>
 }
 
 export async function setCollectFirstCycleAction(formData: FormData): Promise<void> {
+  if (!(await requireAdminUser())) return
+
   const quoteId = str(formData.get("quoteId"))
   if (!quoteId) return
   await prisma.quote.update({

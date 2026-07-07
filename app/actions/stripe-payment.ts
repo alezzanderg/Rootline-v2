@@ -1,5 +1,6 @@
 "use server"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import { revalidateQuotePaymentPaths } from "@/lib/payments/revalidate"
 import {
   createStripeCheckoutForQuote,
@@ -23,6 +24,8 @@ function mapStripeError(error: unknown): string {
 }
 
 export async function createStripeCheckoutAction(formData: FormData): Promise<StripePaymentActionResult> {
+  if (!(await requireAdminUser())) return { ok: false, error: "Sesión no válida." }
+
   const quoteId = parseStr(formData.get("quoteId"))
   if (!quoteId) return { ok: false, error: "Missing quote" }
   if (!isStripeConfigured()) {
@@ -39,6 +42,8 @@ export async function createStripeCheckoutAction(formData: FormData): Promise<St
 }
 
 export async function syncStripeCheckoutAction(formData: FormData): Promise<StripePaymentActionResult> {
+  if (!(await requireAdminUser())) return { ok: false, error: "Sesión no válida." }
+
   const quoteId = parseStr(formData.get("quoteId"))
   if (!quoteId) return { ok: false, error: "Missing quote" }
   if (!isStripeConfigured()) {
@@ -51,17 +56,5 @@ export async function syncStripeCheckoutAction(formData: FormData): Promise<Stri
     return { ok: true, status: status ?? undefined }
   } catch (error) {
     return { ok: false, error: mapStripeError(error) }
-  }
-}
-
-/** Fallback when Mercury AR is unavailable — failures are logged but do not block signing. */
-export async function tryCreateStripeCheckoutAfterAcceptance(quoteId: string): Promise<void> {
-  if (!isStripeConfigured()) return
-
-  try {
-    await createStripeCheckoutForQuote(quoteId)
-    await revalidateQuotePaymentPaths(quoteId)
-  } catch (error) {
-    console.error("[stripe] Failed to create checkout after quote acceptance:", mapStripeError(error))
   }
 }

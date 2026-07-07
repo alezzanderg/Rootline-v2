@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
+import { requireAdminUser } from "@/lib/admin-session"
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit"
 import { isCompleteNJAddress, parseCompleteUSAddress } from "@/lib/address-format"
 import { parsePhoneRequired } from "@/lib/phone-format"
+import { sendNewInquiryNotification } from "@/lib/inquiry-notifications"
 import { getInquirySubjectLabel, isValidInquirySubject } from "@/lib/service-inquiry-subjects"
 import { prisma } from "@/lib/prisma"
 
@@ -20,9 +23,17 @@ function parseEmail(v: FormDataEntryValue | null): string | null {
 
 export type SubmitInquiryResult =
   | { ok: true }
-  | { ok: false; error: "missing" | "invalid_email" | "invalid_phone" | "invalid_address" }
+  | {
+      ok: false
+      error: "missing" | "invalid_email" | "invalid_phone" | "invalid_address" | "rate_limited"
+    }
 
 export async function submitServiceInquiryAction(formData: FormData): Promise<SubmitInquiryResult> {
+  // Each submission stores a row and triggers notification emails — cap per IP.
+  if (!checkRateLimit(`inquiry:${await getClientIp()}`, 5, 10 * 60_000)) {
+    return { ok: false, error: "rate_limited" }
+  }
+
   const firstName = parseStr(formData.get("firstName"))
   const lastName = parseStr(formData.get("lastName"))
   const address = parseStr(formData.get("address"))
@@ -45,7 +56,7 @@ export async function submitServiceInquiryAction(formData: FormData): Promise<Su
   if (!email) return { ok: false, error: "invalid_email" }
   if (!phone) return { ok: false, error: "invalid_phone" }
 
-  await prisma.serviceInquiry.create({
+  const inquiry = await prisma.serviceInquiry.create({
     data: {
       firstName,
       lastName,
@@ -58,12 +69,26 @@ export async function submitServiceInquiryAction(formData: FormData): Promise<Su
     },
   })
 
+  void sendNewInquiryNotification({
+    id: inquiry.id,
+    firstName,
+    lastName,
+    address,
+    email,
+    phone,
+    subject,
+    message,
+    locale,
+  }).catch(() => {})
+
   revalidatePath("/dashboard/solicitudes")
   revalidatePath("/dashboard", "layout")
   return { ok: true }
 }
 
 export async function markServiceInquiryReadAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   if (!id) return
   await prisma.serviceInquiry.update({
@@ -75,6 +100,8 @@ export async function markServiceInquiryReadAction(formData: FormData) {
 }
 
 export async function archiveServiceInquiryAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   if (!id) return
   await prisma.serviceInquiry.update({
@@ -86,6 +113,8 @@ export async function archiveServiceInquiryAction(formData: FormData) {
 }
 
 export async function deleteServiceInquiryAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   const confirm = formData.get("confirmDelete") === "on"
   if (!id || !confirm) return
@@ -99,6 +128,8 @@ function titleCase(s: string) {
 }
 
 export async function createCustomerFromInquiryAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const id = parseStr(formData.get("id"))
   if (!id) return
 

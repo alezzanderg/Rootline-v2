@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Check, Copy, ExternalLink, Link2, Unlink } from "lucide-react"
+import Link from "next/link"
+import { Check, Copy, ExternalLink, Link2, Mail, Unlink } from "lucide-react"
 
 import {
   generatePublicQuoteLinkAction,
@@ -85,6 +86,13 @@ export function QuotePublicLinkPanel({ quoteId, publicUrl }: QuotePublicLinkPane
               <ExternalLink className="h-3.5 w-3.5" />
               Abrir página pública
             </a>
+            <Link
+              href={`/dashboard/correos?quote=${quoteId}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-foreground/15 px-3 py-2 text-xs font-medium text-foreground/70 transition hover:bg-foreground/5"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Enviar por correo
+            </Link>
             <button
               type="button"
               onClick={onRevoke}
@@ -106,6 +114,13 @@ export function QuotePublicLinkPanel({ quoteId, publicUrl }: QuotePublicLinkPane
           {isPending ? "Generando…" : "Generar enlace público"}
         </button>
       )}
+      <Link
+        href={`/dashboard/correos?quote=${quoteId}`}
+        className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-foreground/15 px-3 py-2 text-xs font-medium text-foreground/70 transition hover:bg-foreground/5"
+      >
+        <Mail className="h-3.5 w-3.5" />
+        Enviar por correo
+      </Link>
     </div>
   )
 }

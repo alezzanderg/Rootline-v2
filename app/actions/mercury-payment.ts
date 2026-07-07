@@ -1,5 +1,6 @@
 "use server"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import { revalidateQuotePaymentPaths } from "@/lib/payments/revalidate"
 import {
   createMercuryInvoiceForQuote,
@@ -34,6 +35,8 @@ function mapMercuryError(error: unknown): string {
 }
 
 export async function createMercuryInvoiceAction(formData: FormData): Promise<MercuryPaymentActionResult> {
+  if (!(await requireAdminUser())) return { ok: false, error: "Sesión no válida." }
+
   const quoteId = parseStr(formData.get("quoteId"))
   const sendEmail = formData.get("sendEmail") === "on"
   if (!quoteId) return { ok: false, error: "Missing quote" }
@@ -51,6 +54,8 @@ export async function createMercuryInvoiceAction(formData: FormData): Promise<Me
 }
 
 export async function syncMercuryInvoiceAction(formData: FormData): Promise<MercuryPaymentActionResult> {
+  if (!(await requireAdminUser())) return { ok: false, error: "Sesión no válida." }
+
   const quoteId = parseStr(formData.get("quoteId"))
   if (!quoteId) return { ok: false, error: "Missing quote" }
   if (!isMercuryConfigured()) {
@@ -63,17 +68,5 @@ export async function syncMercuryInvoiceAction(formData: FormData): Promise<Merc
     return { ok: true, status: status ?? undefined }
   } catch (error) {
     return { ok: false, error: mapMercuryError(error) }
-  }
-}
-
-/** Called after quote acceptance — failures are logged but do not block signing. */
-export async function tryCreateMercuryInvoiceAfterAcceptance(quoteId: string): Promise<void> {
-  if (!isMercuryConfigured()) return
-
-  try {
-    await createMercuryInvoiceForQuote(quoteId, { sendEmail: false })
-    await revalidateQuotePaymentPaths(quoteId)
-  } catch (error) {
-    console.error("[mercury] Failed to create invoice after quote acceptance:", mapMercuryError(error))
   }
 }

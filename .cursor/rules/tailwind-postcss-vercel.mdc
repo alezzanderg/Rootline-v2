@@ -1,0 +1,55 @@
+---
+description: Prevent Tailwind/PostCSS changes that break Vercel production CSS
+globs: app/globals.css,postcss.config.mjs,next.config.ts
+alwaysApply: false
+---
+
+# Tailwind v4 + Vercel — do not break production CSS
+
+## Never change these to “fix” local Turbopack warnings
+
+Local dev can warn about a parent `package-lock.json` (e.g. `C:\Users\alexa\package-lock.json`). **That is already handled** by `turbopack.root` / `outputFileTracingRoot` in `next.config.ts`. Do **not** patch CSS config for that.
+
+### `app/globals.css` — keep the magic import
+
+```css
+/* ✅ CORRECT — PostCSS plugin expands this into all utilities */
+@import "tailwindcss";
+
+/* ❌ FORBIDDEN — treated as a plain file copy; no utilities in production */
+@import "../node_modules/tailwindcss/index.css";
+```
+
+### `postcss.config.mjs` — keep the simple plugin config
+
+```js
+/* ✅ CORRECT for Vercel (webpack + PostCSS) */
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+}
+export default config
+
+/* ❌ FORBIDDEN — breaks class scanning on Vercel; empty/incomplete CSS bundle */
+"@tailwindcss/postcss": { base: projectRoot }
+```
+
+## Why local looked fine but production broke
+
+| Environment | CSS pipeline | Effect of bad `postcss` / import |
+|-------------|--------------|----------------------------------|
+| `next dev` (Turbopack) | Native CSS, often ignores PostCSS `base` | Styles still work locally |
+| Vercel `next build` | Webpack + PostCSS | Utilities missing → unstyled auth, dashboard, marketing |
+
+## If you see path / lockfile warnings
+
+1. **Only** adjust `next.config.ts` (`turbopack.root`, `outputFileTracingRoot`) if needed.
+2. **Do not** edit `globals.css` or `postcss.config.mjs` unless the user explicitly asks for a Tailwind upgrade.
+3. After any accidental CSS config change, run `npm run build` and confirm pages are styled before pushing.
+
+## Known-good baseline (commit `e950a9a` / `4432cb3`)
+
+- `globals.css`: `@import "tailwindcss";`
+- `postcss.config.mjs`: `"@tailwindcss/postcss": {}`
+- `next.config.ts`: `turbopack.root` + `outputFileTracingRoot` pointing at this repo root

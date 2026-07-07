@@ -4,6 +4,7 @@ import { randomUUID } from "crypto"
 
 import { revalidatePath } from "next/cache"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import { getPublicQuotePath } from "@/lib/quote-document"
 import { prisma } from "@/lib/prisma"
 
@@ -12,6 +13,8 @@ function parseStr(v: FormDataEntryValue | null): string {
 }
 
 export async function generatePublicQuoteLinkAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const quoteId = parseStr(formData.get("quoteId"))
   if (!quoteId) return
 
@@ -34,6 +37,8 @@ export async function generatePublicQuoteLinkAction(formData: FormData) {
 }
 
 export async function revokePublicQuoteLinkAction(formData: FormData) {
+  if (!(await requireAdminUser())) return
+
   const quoteId = parseStr(formData.get("quoteId"))
   if (!quoteId) return
 

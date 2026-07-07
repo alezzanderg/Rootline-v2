@@ -12,7 +12,8 @@
     "seed": "prisma db seed",
     "favicons": "tsx scripts/generate-favicons.ts",
     "optimize-images": "tsx scripts/optimize-marketing-images.ts",
-    "reset-admin-password": "tsx scripts/reset-admin-password.ts"
+    "reset-admin-password": "tsx scripts/reset-admin-password.ts",
+    "admin-invite": "tsx scripts/generate-admin-invite.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -28,6 +29,7 @@
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "resend": "^6.17.1",
     "stripe": "^22.2.0",
     "tailwind-merge": "^3.5.0"
   },

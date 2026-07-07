@@ -195,6 +195,7 @@ export function QuoteDocumentView({ quote, mode, isPaid: isPaidProp }: QuoteDocu
           {hasOptions ? (
             <QuoteOptionsSelector
               quoteId={quote.id}
+              publicToken={quote.publicToken}
               interactive={interactive}
               showUnselected={!lockedSelection}
               groups={quote.optionGroups}

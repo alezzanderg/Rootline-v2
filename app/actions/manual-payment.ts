@@ -1,5 +1,6 @@
 "use server"
 
+import { requireAdminUser } from "@/lib/admin-session"
 import {
   clearManualQuotePayment,
   ManualPaymentError,
@@ -31,6 +32,8 @@ function parsePaidAt(raw: string): Date | undefined {
 }
 
 export async function recordManualPaymentAction(formData: FormData): Promise<ManualPaymentActionResult> {
+  if (!(await requireAdminUser())) return { ok: false, error: "Sesión no válida." }
+
   const quoteId = parseStr(formData.get("quoteId"))
   const method = parseMethod(parseStr(formData.get("method")))
   const note = parseStr(formData.get("note"))
@@ -48,6 +51,8 @@ export async function recordManualPaymentAction(formData: FormData): Promise<Man
 }
 
 export async function clearManualPaymentAction(formData: FormData): Promise<ManualPaymentActionResult> {
+  if (!(await requireAdminUser())) return { ok: false, error: "Sesión no válida." }
+
   const quoteId = parseStr(formData.get("quoteId"))
   if (!quoteId) return { ok: false, error: "Missing quote" }
 

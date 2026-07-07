@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "@/lib/generated/prisma/client"
 
 /** Bump when Prisma schema changes so dev HMR does not keep a stale client. */
-const PRISMA_SCHEMA_VERSION = "quote-payment-methods-v1"
+const PRISMA_SCHEMA_VERSION = "email-signatures-v1"
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient
