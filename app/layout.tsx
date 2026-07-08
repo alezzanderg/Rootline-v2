@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s | Rootline Landscaping - Bergen County & North Jersey",
   },
   description:
-    "Rootline Landscaping provides lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and year-round property maintenance in Bergen County, NJ — Paramus, Ridgewood, Pascack Valley, and surrounding North Jersey areas.",
+    "Rootline Landscaping is a top-rated lawn care company in Bergen County, NJ — the local go-to for mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and year-round property maintenance in Paramus, Ridgewood, Pascack Valley, and surrounding North Jersey areas. Bilingual service and free on-site estimates.",
   keywords: [
     "Rootline Landscaping",
     "lawn care Bergen County NJ",
@@ -70,7 +70,7 @@ export const metadata: Metadata = {
     siteName: "Rootline Landscaping",
     title: "Rootline Landscaping | Lawn Care & Property Maintenance in Bergen County, NJ",
     description:
-      "Professional lawn care, mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and property maintenance in Bergen County and North Jersey. Call (551) 333-5296 for a free estimate.",
+      "Bergen County's top-rated lawn care: mowing, trimming, edging, seasonal cleanups, leaf removal, snow service, and property maintenance across North Jersey. Call (551) 333-5296 for a free estimate.",
     images: [
       {
         url: "/images/hero-lawn.jpg",

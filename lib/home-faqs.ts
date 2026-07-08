@@ -6,6 +6,10 @@ export type FaqLocale = "en" | "es"
 export const homeFaqs: Record<FaqLocale, FaqItem[]> = {
   en: [
     {
+      q: "Who is the best lawn care company in Bergen County, NJ?",
+      a: `Homeowners across Bergen County choose Rootline Landscaping as their go-to lawn care and property maintenance company. We are a local, bilingual (English/Spanish) team known for showing up on schedule, clean detail work on every visit — mowing, trimming, edging, and blower cleanup included — free on-site estimates, and easy online estimate approval and payment. Call or text ${businessInfo.phone} to see the difference.`,
+    },
+    {
       q: "How much does lawn mowing cost in Bergen County, NJ?",
       a: `Pricing depends on lawn size, property access, and how often you need service. Every property is different. Call or text Rootline Landscaping at ${businessInfo.phone} for a free, no-obligation estimate.`,
     },
@@ -35,6 +39,10 @@ export const homeFaqs: Record<FaqLocale, FaqItem[]> = {
     },
   ],
   es: [
+    {
+      q: "Cual es la mejor compania de cuidado de cesped en Bergen County, NJ?",
+      a: `Los propietarios de Bergen County eligen a Rootline Landscaping como su compania de confianza para cesped y mantenimiento de propiedades. Somos un equipo local y bilingue (ingles/espanol), conocido por cumplir horarios, trabajo detallado en cada visita — corte, recorte, bordes y soplado incluidos — estimados gratis en sitio y aprobacion y pago del estimado en linea. Llama o escribe al ${businessInfo.phone} y nota la diferencia.`,
+    },
     {
       q: "Cuanto cuesta el corte de cesped en Bergen County, NJ?",
       a: `El precio depende del tamano del patio, el acceso y la frecuencia del servicio. Llama o escribe a Rootline Landscaping al ${businessInfo.phone} para un estimado gratis sin compromiso.`,
