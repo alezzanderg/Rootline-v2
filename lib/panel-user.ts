@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs"
 
+import { createAdminInviteToken } from "@/lib/admin-invite"
 import { prisma } from "@/lib/prisma"
 
 /** Panel login user (User model) — separate from field Employee records. */
@@ -43,6 +44,14 @@ export async function upsertPanelUserForEmployee(params: {
   })
 }
 
+/**
+ * Signed first-login link for the /auth password-setup flow. The invite token
+ * is required since password setup is gated (see lib/admin-invite); a plain
+ * ?mode=setup link no longer works.
+ */
 export function panelSetupUrl(email: string, siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000") {
-  return `${siteUrl.replace(/\/$/, "")}/auth?mode=setup&email=${encodeURIComponent(email)}`
+  const normalized = email.trim().toLowerCase()
+  const invite = createAdminInviteToken(normalized)
+  const query = `mode=setup&email=${encodeURIComponent(normalized)}&invite=${encodeURIComponent(invite)}`
+  return `${siteUrl.replace(/\/$/, "")}/auth?${query}`
 }

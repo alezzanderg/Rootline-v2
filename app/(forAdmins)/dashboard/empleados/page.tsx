@@ -1,8 +1,16 @@
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
+import {
+  IdCard,
+  KeyRound,
+  ShieldAlert,
+  UserCheck,
+  Users,
+} from "lucide-react"
 
 import { EditDialog } from "@/components/ui/EditDialog"
 import { PhoneInput } from "@/components/ui/PhoneInput"
+import { requireAdminUser } from "@/lib/admin-session"
 import { panelSetupUrl, upsertPanelUserForEmployee } from "@/lib/panel-user"
 import { parsePhoneOptional } from "@/lib/phone-format"
 import { prisma } from "@/lib/prisma"
@@ -40,10 +48,30 @@ function formatDate(d: Date) {
 }
 
 const ROLES = [
-  { value: "ADMIN", label: "Administrador" },
-  { value: "MANAGER", label: "Manager" },
-  { value: "CREW_LEAD", label: "Líder de cuadrilla" },
-  { value: "TECHNICIAN", label: "Técnico" },
+  {
+    value: "ADMIN",
+    label: "Administrador",
+    summary: "Dirige el negocio: precios, finanzas y equipo.",
+    duties: "Estimados, pagos, Operating, gestión de empleados.",
+  },
+  {
+    value: "MANAGER",
+    label: "Manager",
+    summary: "Coordina las operaciones del día a día.",
+    duties: "Agenda cuadrillas, clientes y seguimiento de trabajos.",
+  },
+  {
+    value: "CREW_LEAD",
+    label: "Líder de cuadrilla",
+    summary: "Dirige a los técnicos en el campo.",
+    duties: "Ejecuta la ruta del día y reporta el trabajo hecho.",
+  },
+  {
+    value: "TECHNICIAN",
+    label: "Técnico",
+    summary: "Realiza el trabajo en la propiedad del cliente.",
+    duties: "Corte, limpieza y mantenimiento asignados.",
+  },
 ] as const
 
 const ROLE_LABEL: Record<string, string> = Object.fromEntries(ROLES.map((r) => [r.value, r.label]))
@@ -55,6 +83,13 @@ const ROLE_BADGE: Record<string, string> = {
   TECHNICIAN: "border-emerald-600/30 bg-emerald-50 text-emerald-700",
 }
 
+const ROLE_DOT: Record<string, string> = {
+  ADMIN: "bg-violet-500",
+  MANAGER: "bg-sky-500",
+  CREW_LEAD: "bg-amber-500",
+  TECHNICIAN: "bg-emerald-500",
+}
+
 type EmpleadosPageProps = {
   searchParams?: Promise<{ q?: string; role?: string }>
 }
@@ -62,6 +97,7 @@ type EmpleadosPageProps = {
 export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps) {
   async function createEmployeeAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const firstName = titleCase(parseStr(formData.get("firstName")))
     const lastName = titleCase(parseStr(formData.get("lastName")))
     const email = parseStr(formData.get("email")).toLowerCase()
@@ -99,6 +135,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
 
   async function updateEmployeeAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const id = parseStr(formData.get("id"))
     const firstName = titleCase(parseStr(formData.get("firstName")))
     const lastName = titleCase(parseStr(formData.get("lastName")))
@@ -123,8 +160,20 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
     revalidatePath("/dashboard/scheduling")
   }
 
+  async function setEmployeeActiveAction(formData: FormData) {
+    "use server"
+    if (!(await requireAdminUser())) return
+    const id = parseStr(formData.get("id"))
+    const nextActive = formData.get("nextActive") === "on"
+    if (!id) return
+    await prisma.employee.update({ where: { id }, data: { isActive: nextActive } })
+    revalidatePath("/dashboard/empleados")
+    revalidatePath("/dashboard/scheduling")
+  }
+
   async function createPanelAccessAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const employeeId = parseStr(formData.get("employeeId"))
     const password = parseStr(formData.get("password"))
     const confirm = parseStr(formData.get("confirmPassword"))
@@ -145,6 +194,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
 
   async function resetPanelPasswordAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const employeeId = parseStr(formData.get("employeeId"))
     if (!employeeId) return
     const employee = await prisma.employee.findUnique({ where: { id: employeeId } })
@@ -208,6 +258,9 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
 
   const activeCount = employees.filter((e) => e.isActive).length
   const userByEmail = new Map(adminUsers.map((u) => [u.email.toLowerCase(), u]))
+  const employeeEmails = new Set(employees.map((e) => e.email.toLowerCase()))
+  const panelAccessCount = employees.filter((e) => userByEmail.has(e.email.toLowerCase())).length
+  const orphanUsers = adminUsers.filter((u) => !employeeEmails.has(u.email.toLowerCase()))
   const roleCounts = ROLES.map((r) => ({
     ...r,
     count: employees.filter((e) => e.role === r.value && e.isActive).length,
@@ -324,29 +377,93 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
     )
   }
 
+  const statCard = "rounded-2xl border border-foreground/12 bg-white/50 p-4"
+
   return (
     <section className="mx-auto max-w-7xl text-foreground">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
-          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
-            Empleados y roles
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-foreground/55">
-            El <strong className="font-medium text-foreground/70">rol del empleado</strong> (Administrador, Técnico, etc.)
-            es para scheduling y operaciones. El <strong className="font-medium text-foreground/70">login en /auth</strong>{" "}
-            es una cuenta aparte: debes darle acceso al panel con el botón en cada fila o al crear el empleado.
-          </p>
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
+        <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
+          Empleados y roles
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-foreground/55">
+          Administra tu equipo y quién puede iniciar sesión en el panel.
+        </p>
+      </div>
+
+      {/* Stat cards */}
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={statCard}>
+          <div className="flex items-center gap-2 text-foreground/45">
+            <Users className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Equipo</span>
+          </div>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums">{employees.length}</p>
+          <p className="text-xs text-foreground/45">empleados registrados</p>
         </div>
-        <div className="flex flex-wrap gap-2 text-sm">
-          <span className="rounded-full border border-foreground/15 px-3 py-1 text-foreground/60">
-            {employees.length} empleados
-          </span>
-          <span className="rounded-full border border-emerald-600/30 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
-            {activeCount} activos
-          </span>
+        <div className={statCard}>
+          <div className="flex items-center gap-2 text-emerald-600">
+            <UserCheck className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Activos</span>
+          </div>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums text-emerald-700">{activeCount}</p>
+          <p className="text-xs text-foreground/45">aparecen en scheduling</p>
+        </div>
+        <div className={statCard}>
+          <div className="flex items-center gap-2 text-sky-600">
+            <KeyRound className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Acceso panel</span>
+          </div>
+          <p className="mt-2 font-display text-3xl font-bold tabular-nums text-sky-700">{panelAccessCount}</p>
+          <p className="text-xs text-foreground/45">pueden iniciar sesión</p>
+        </div>
+        <div className={statCard}>
+          <div className="flex items-center gap-2 text-foreground/45">
+            <IdCard className="h-4 w-4" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Roles</span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {roleCounts.map((r) => (
+              <span key={r.value} className="flex items-center gap-1.5 text-xs text-foreground/60">
+                <span className={`h-2 w-2 rounded-full ${ROLE_DOT[r.value]}`} />
+                {r.label} <span className="font-semibold tabular-nums">{r.count}</span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Role reference — what each role means, plus the panel-access caveat */}
+      <details className="group mt-4 rounded-2xl border border-foreground/12 bg-foreground/2 p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+          <span className="flex items-center gap-2 text-sm font-semibold text-foreground/75">
+            <IdCard className="h-4 w-4 text-accent" />
+            Qué hace cada rol
+          </span>
+          <span className="text-xs text-foreground/45 group-open:hidden">Ver</span>
+          <span className="hidden text-xs text-foreground/45 group-open:inline">Ocultar</span>
+        </summary>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {ROLES.map((r) => (
+            <div key={r.value} className="rounded-xl border border-foreground/10 bg-background p-3">
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${ROLE_DOT[r.value]}`} />
+                <p className="text-sm font-semibold">{r.label}</p>
+              </div>
+              <p className="mt-1 text-xs text-foreground/60">{r.summary}</p>
+              <p className="mt-1 text-[11px] text-foreground/45">{r.duties}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            El rol organiza al equipo, pero <strong className="font-semibold">no limita el panel</strong>: hoy cualquier
+            empleado con <strong className="font-semibold">acceso al panel</strong> entra con permisos de administrador.
+            Da acceso solo a quienes deban gestionar el negocio.
+          </span>
+        </p>
+      </details>
 
       {/* Role chips */}
       <div className="mt-5 flex flex-wrap gap-2">
@@ -476,7 +593,9 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
                   return (
                   <tr
                     key={e.id}
-                    className="border-b border-foreground/8 last:border-b-0 hover:bg-foreground/2"
+                    className={`border-b border-foreground/8 last:border-b-0 transition hover:bg-foreground/2 ${
+                      e.isActive ? "" : "bg-foreground/2 opacity-60"
+                    }`}
                   >
                     <td className="px-4 py-3 align-middle">
                       <p className="font-semibold">
@@ -571,19 +690,48 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
                     </td>
                     <td className="px-4 py-3 align-middle text-right">
                       <div className="flex flex-col items-end gap-1.5">
-                        <EditDialog label="Editar" action={updateEmployeeAction} variant="light">
+                        <EditDialog
+                          label="Editar"
+                          action={updateEmployeeAction}
+                          variant="light"
+                          triggerClassName="rounded-md border border-foreground/20 px-2.5 py-1 text-xs font-medium text-foreground/70 transition hover:bg-foreground/5"
+                        >
                           {employeeFormFields(e)}
                         </EditDialog>
+                        <form action={setEmployeeActiveAction}>
+                          <input type="hidden" name="id" value={e.id} />
+                          <input type="hidden" name="nextActive" value={e.isActive ? "off" : "on"} />
+                          <button
+                            type="submit"
+                            className={`text-[11px] font-medium transition ${
+                              e.isActive
+                                ? "text-foreground/45 hover:text-rose-600"
+                                : "text-emerald-600 hover:text-emerald-700"
+                            }`}
+                          >
+                            {e.isActive ? "Desactivar" : "Reactivar"}
+                          </button>
+                        </form>
                         {panelUser ? (
-                          <form action={resetPanelPasswordAction}>
+                          <EditDialog
+                            label="Reset contraseña"
+                            action={resetPanelPasswordAction}
+                            triggerClassName="text-[11px] text-foreground/40 transition hover:text-foreground/65"
+                          >
                             <input type="hidden" name="employeeId" value={e.id} />
+                            <p className="text-sm text-foreground/70">
+                              Se borrará la contraseña de{" "}
+                              <span className="font-medium text-foreground">{e.email}</span> y{" "}
+                              <strong className="font-semibold">se cerrará su sesión</strong>. Deberá crear una nueva con
+                              el enlace de primer ingreso.
+                            </p>
                             <button
                               type="submit"
-                              className="text-[10px] text-foreground/40 hover:text-foreground/65"
+                              className="mt-4 w-full rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
                             >
-                              Reset contraseña
+                              Confirmar y resetear
                             </button>
-                          </form>
+                          </EditDialog>
                         ) : null}
                       </div>
                     </td>
@@ -600,12 +748,22 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
       <div className="mt-10">
         <h2 className="font-display text-xl font-semibold">Acceso al panel web</h2>
         <p className="mt-1 text-sm text-foreground/55">
-          Cuentas vinculadas por email al empleado. Inicio de sesión en{" "}
+          Cuentas que inician sesión en{" "}
           <Link href="/auth" className="text-accent hover:underline">
             /auth
           </Link>
-          . Usa <strong className="font-medium">Dar acceso</strong> en la tabla o al crear un empleado.
+          . Se vinculan por email al empleado. Usa <strong className="font-medium">Dar acceso</strong> en la tabla o al
+          crear un empleado.
         </p>
+        {orphanUsers.length > 0 ? (
+          <p className="mt-2 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {orphanUsers.length === 1 ? "Hay 1 cuenta" : `Hay ${orphanUsers.length} cuentas`} con acceso al panel sin
+              un empleado vinculado ({orphanUsers.map((u) => u.email).join(", ")}). Revisa que sigan siendo necesarias.
+            </span>
+          </p>
+        ) : null}
 
         <div className="mt-4 overflow-hidden rounded-xl border border-foreground/12">
           <div className="overflow-x-auto">
@@ -620,6 +778,9 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
                     Email
                   </th>
                   <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
+                    Vínculo
+                  </th>
+                  <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
                     Contraseña
                   </th>
                   <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
@@ -630,7 +791,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
               <tbody>
                 {adminUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-sm text-foreground/45">
+                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-foreground/45">
                       No hay usuarios admin. Créalos con el script de reset de contraseña.
                     </td>
                   </tr>
@@ -638,10 +799,24 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
                   adminUsers.map((u) => {
                     const name =
                       [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || "—"
+                    const isLinked = employeeEmails.has(u.email.toLowerCase())
                     return (
                       <tr key={u.id} className="border-b border-foreground/8 last:border-b-0">
                         <td className="px-4 py-3 font-medium">{name}</td>
                         <td className="px-4 py-3 text-foreground/70">{u.email}</td>
+                        <td className="px-4 py-3">
+                          {isLinked ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-foreground/55">
+                              <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                              Empleado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700">
+                              <ShieldAlert className="h-3.5 w-3.5" />
+                              Sin empleado
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <span
                             className={`text-xs font-medium ${u.passwordHash ? "text-emerald-600" : "text-amber-600"}`}
