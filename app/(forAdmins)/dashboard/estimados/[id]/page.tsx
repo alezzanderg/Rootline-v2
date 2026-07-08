@@ -1,14 +1,16 @@
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { Eye, MapPin, MoreVertical } from "lucide-react"
+import { AlertTriangle, Eye, Mail, MapPin, MoreVertical, Phone, Send, User } from "lucide-react"
 
 import { EstimadoLineItems, type EstimadoLineItem } from "@/components/ui/EstimadoLineItems"
 import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
+import { QuoteActivityTimeline, type QuoteTimelineEvent } from "@/components/quotes/QuoteActivityTimeline"
 import { MercuryInvoicePanel } from "@/components/quotes/MercuryInvoicePanel"
 import { ManualPaymentPanel } from "@/components/quotes/ManualPaymentPanel"
 import { StripeCheckoutPanel } from "@/components/quotes/StripeCheckoutPanel"
 import { QuotePublicLinkPanel } from "@/components/quotes/QuotePublicLinkPanel"
+import { requireAdminUser } from "@/lib/admin-session"
 import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
 import { getMercuryPayUrl, hasValidMercuryTokenFormat, isMercuryConfigured } from "@/lib/mercury/config"
 import { isStripeConfigured, getStripeMode, getStripeModeLabel } from "@/lib/stripe/config"
@@ -45,6 +47,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function updateQuoteAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("id"))
     if (!quoteId) return
     const validUntilRaw = parseOptStr(formData.get("validUntil"))
@@ -63,6 +66,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function updateFrequencyAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const raw = parseStr(formData.get("serviceFrequency"))
     const serviceFrequency =
@@ -78,6 +82,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function updatePlanTierAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const raw = parseStr(formData.get("planTier"))
     const planTier = raw === "SMALL" || raw === "MEDIUM" || raw === "LARGE" ? raw : null
@@ -92,6 +97,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function addItemAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const serviceId = parseStr(formData.get("serviceId"))
     const quantity = parseOptFloat(formData.get("quantity")) ?? 1
@@ -117,6 +123,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function addPlanItemAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     if (!quoteId) return
 
@@ -187,6 +194,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function addCustomItemAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const name = parseStr(formData.get("name"))
     const unitPrice = parseOptFloat(formData.get("unitPrice"))
@@ -211,6 +219,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function removeItemAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const itemId = parseStr(formData.get("itemId"))
     if (!quoteId || !itemId) return
@@ -224,6 +233,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function updateItemAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const itemId = parseStr(formData.get("itemId"))
     if (!quoteId || !itemId) return
@@ -247,6 +257,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function changeStatusAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const status = parseStr(formData.get("status"))
     if (!quoteId || !["SENT", "APPROVED", "REJECTED", "DRAFT"].includes(status)) return
@@ -271,9 +282,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function deleteQuoteAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("id"))
     const confirm = formData.get("confirmDelete") === "on"
     if (!quoteId || !confirm) return
+    // Never hard-delete a paid quote — it is a financial record.
+    const existing = await prisma.quote.findUnique({ where: { id: quoteId }, select: { paidAt: true } })
+    if (existing?.paidAt) return
     await prisma.quote.delete({ where: { id: quoteId } })
     revalidatePath("/dashboard/estimados")
     redirect("/dashboard/estimados")
@@ -281,6 +296,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
 
   async function togglePaymentsAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     if (!quoteId) return
     const enabled = formData.get("paymentsEnabled") === "on"
@@ -291,6 +307,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
   /** Testing helper: reset the quote as if the client hasn't responded yet. */
   async function resetClientResponseAction(formData: FormData) {
     "use server"
+    if (!(await requireAdminUser())) return
     const quoteId = parseStr(formData.get("quoteId"))
     const confirm = formData.get("confirmReset") === "on"
     if (!quoteId || !confirm) return
@@ -322,11 +339,11 @@ export default async function EstimadoDetailPage({ params }: Props) {
     revalidatePath("/dashboard/estimados")
   }
 
-  const [quote, services, plans, taxRatePercent] = await Promise.all([
+  const [quote, services, plans, taxRatePercent, emailLogs] = await Promise.all([
     prisma.quote.findUnique({
       where: { id },
       include: {
-        customer: { select: { firstName: true, lastName: true, email: true } },
+        customer: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
         property: { select: { street: true, city: true, lotSizeSqFt: true } },
         items: {
           include: {
@@ -368,6 +385,11 @@ export default async function EstimadoDetailPage({ params }: Props) {
       select: { id: true, name: true, tier: true, monthlyPrice: true, visitsPerMonth: true },
     }),
     getTaxRatePercent(),
+    prisma.emailSendLog.findMany({
+      where: { quoteId: id, status: "sent" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, createdAt: true, toEmail: true, subject: true },
+    }),
   ])
 
   if (!quote) notFound()
@@ -458,6 +480,39 @@ export default async function EstimadoDetailPage({ params }: Props) {
   const chip = "inline-flex items-center rounded-full border border-foreground/15 bg-foreground/5 px-2.5 py-0.5 text-xs font-medium text-foreground/65"
   const sectionTitle = "text-[11px] font-semibold uppercase tracking-wider text-foreground/40"
 
+  const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null)
+  const timelineEvents: QuoteTimelineEvent[] = (
+    [
+      { key: "created", label: "Estimado creado", at: iso(quote.createdAt), icon: "created", tone: "neutral" },
+      { key: "sent", label: "Marcado como enviado", at: iso(quote.sentAt), icon: "sent", tone: "info" },
+      ...emailLogs.map(
+        (log): QuoteTimelineEvent => ({
+          key: `email-${log.id}`,
+          label: "Correo enviado al cliente",
+          at: iso(log.createdAt),
+          icon: "email",
+          tone: "info",
+          detail: log.toEmail,
+        })
+      ),
+      { key: "approved", label: "Aprobado por el cliente", at: iso(quote.approvedAt), icon: "approved", tone: "success" },
+      { key: "signed", label: "Firmado", at: iso(quote.signedAt), icon: "signed", tone: "success" },
+      { key: "rejected", label: "Rechazado por el cliente", at: iso(quote.rejectedAt), icon: "rejected", tone: "danger" },
+      {
+        key: "paid",
+        label: "Pago recibido",
+        at: iso(quote.paidAt),
+        icon: "paid",
+        tone: "success",
+        detail: quote.paymentMethod,
+      },
+    ] satisfies QuoteTimelineEvent[]
+  )
+    .filter((e) => e.at)
+    .sort((a, b) => (a.at! < b.at! ? -1 : a.at! > b.at! ? 1 : 0))
+
+  const customerPhoneDigits = quote.customer.phone?.replace(/\D/g, "") ?? ""
+
   return (
     <section className="mx-auto max-w-6xl text-foreground">
       {/* Top bar */}
@@ -472,6 +527,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
           >
             <Eye className="h-3.5 w-3.5" />
             Vista previa
+          </Link>
+          <Link
+            href={`/dashboard/correos?quote=${quote.id}`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-semibold text-accent-foreground shadow-sm transition hover:bg-accent/90"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {quote.status === "DRAFT" ? "Enviar al cliente" : "Reenviar correo"}
           </Link>
           <details className="relative">
             <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 bg-background text-foreground/60 transition hover:bg-foreground/5">
@@ -500,11 +562,37 @@ export default async function EstimadoDetailPage({ params }: Props) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Estimado</p>
-          <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">{customerName}</h1>
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-foreground/55">
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
-            {propertyAddress}
-          </p>
+          <Link
+            href={`/dashboard/clientes/${quote.customer.id}`}
+            className="mt-1 inline-flex items-center gap-2 font-display text-3xl font-semibold transition hover:text-accent sm:text-4xl"
+          >
+            {customerName}
+            <User className="h-4 w-4 shrink-0 text-foreground/30" />
+          </Link>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground/55">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              {propertyAddress}
+            </span>
+            {quote.customer.phone ? (
+              <a href={`tel:${customerPhoneDigits}`} className="flex items-center gap-1.5 transition hover:text-accent">
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                {quote.customer.phone}
+              </a>
+            ) : null}
+            {quote.customer.email ? (
+              <a href={`mailto:${quote.customer.email}`} className="flex items-center gap-1.5 transition hover:text-accent">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                {quote.customer.email}
+              </a>
+            ) : null}
+          </div>
+          {!quote.property ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Sin propiedad asignada — el tamaño del yard usa “{PLAN_TIER_LABEL[planTier]}” por defecto.
+            </p>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}>
               {statusLabel(quote.status)}
@@ -624,6 +712,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Actividad + firma */}
+          <QuoteActivityTimeline
+            events={timelineEvents}
+            signatureData={quote.signatureData}
+            signedAt={quote.signedAt?.toISOString() ?? null}
+          />
 
           {/* Compartir */}
           <QuotePublicLinkPanel quoteId={quote.id} publicUrl={publicUrl} />

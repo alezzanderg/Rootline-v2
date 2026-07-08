@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { Check } from "lucide-react"
 
 import {
   selectQuoteOptionAction,
@@ -78,6 +79,7 @@ function LineRow({
   const [qty, setQty] = useState(String(item.quantity))
   const [price, setPrice] = useState(item.unitPrice.toFixed(2))
   const [desc, setDesc] = useState(item.description ?? "")
+  const [justSaved, setJustSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const q = Number(qty)
@@ -97,6 +99,8 @@ function LineRow({
     formData.set("description", desc)
     startTransition(async () => {
       await updateItemAction(formData)
+      setJustSaved(true)
+      window.setTimeout(() => setJustSaved(false), 1800)
     })
   }
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -127,7 +131,13 @@ function LineRow({
             </span>
           ) : null}
           {group ? <span className="shrink-0 text-[10px] text-foreground/40">grupo: {group.title}</span> : null}
-          {isPending ? <span className="text-[10px] text-foreground/40">guardando…</span> : null}
+          {isPending ? (
+            <span className="text-[10px] text-foreground/40">guardando…</span>
+          ) : justSaved ? (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-600">
+              <Check className="h-3 w-3" /> Guardado
+            </span>
+          ) : null}
         </div>
         <div className="text-right">
           <p className={`tabular-nums text-sm font-semibold ${item.isRecurring ? "text-amber-700" : ""}`}>

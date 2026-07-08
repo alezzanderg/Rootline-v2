@@ -114,13 +114,6 @@ export function QuotePublicLinkPanel({ quoteId, publicUrl }: QuotePublicLinkPane
           {isPending ? "Generando…" : "Generar enlace público"}
         </button>
       )}
-      <Link
-        href={`/dashboard/correos?quote=${quoteId}`}
-        className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-foreground/15 px-3 py-2 text-xs font-medium text-foreground/70 transition hover:bg-foreground/5"
-      >
-        <Mail className="h-3.5 w-3.5" />
-        Enviar por correo
-      </Link>
     </div>
   )
 }
