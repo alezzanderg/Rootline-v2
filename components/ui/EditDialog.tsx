@@ -20,9 +20,11 @@ export function EditDialog({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const formData = new FormData(form)
     startTransition(async () => {
       await action(formData)
+      form.reset()
       ref.current?.close()
     })
   }

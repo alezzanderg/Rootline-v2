@@ -182,15 +182,16 @@ async function resolveSendContext(formData: FormData): Promise<{
 async function resolveSignatureForSend(formData: FormData): Promise<{
   html: string
   id: string | null
+  email: string | null
   replyTo: string | null
 }> {
   const includeRaw = formData.get("includeSignature")
   if (includeRaw === "off" || includeRaw === "false") {
-    return { html: "", id: null, replyTo: null }
+    return { html: "", id: null, email: null, replyTo: null }
   }
 
   const signatureId = parseOptStr(formData.get("signatureId"))
-  if (!signatureId) return { html: "", id: null, replyTo: null }
+  if (!signatureId) return { html: "", id: null, email: null, replyTo: null }
 
   const signature = await prisma.emailSignature.findUnique({
     where: { id: signatureId },
@@ -206,7 +207,7 @@ async function resolveSignatureForSend(formData: FormData): Promise<{
     },
   })
 
-  if (!signature?.active) return { html: "", id: null, replyTo: null }
+  if (!signature?.active) return { html: "", id: null, email: null, replyTo: null }
 
   return {
     html: renderEmailSignatureHtml({
@@ -218,8 +219,61 @@ async function resolveSignatureForSend(formData: FormData): Promise<{
       htmlBody: signature.htmlBody,
     }),
     id: signature.id,
+    email: signature.email,
     replyTo: signature.email,
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+/** Notifica al email de la firma que el envío al cliente fue aceptado por Resend. */
+async function sendSignatureDeliveryConfirmation(opts: {
+  signatureEmail: string
+  toEmail: string
+  toName: string | null
+  subject: string
+  resendId: string | null
+  inquiryId: string | null
+  quoteId: string | null
+}): Promise<void> {
+  if (opts.signatureEmail.toLowerCase() === opts.toEmail.toLowerCase()) return
+
+  const recipientLabel = opts.toName
+    ? `${opts.toName} <${opts.toEmail}>`
+    : opts.toEmail
+  const contextLine = opts.inquiryId
+    ? "Solicitud (inquiry)"
+    : opts.quoteId
+      ? "Estimado / quote"
+      : "Correo general"
+
+  const body = `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Comprobación de envío: el correo al cliente fue aceptado por Resend.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 8px;background:#f8f6f1;border:1px solid #e4ddd0;border-radius:12px;">
+  <tr>
+    <td style="padding:18px 22px;">
+      <p style="margin:0 0 10px;font-family:Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#8b7355;font-weight:700;">Detalle</p>
+      <p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#3d3a36;"><strong>Tipo:</strong> ${escapeHtml(contextLine)}</p>
+      <p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#3d3a36;"><strong>Destinatario:</strong> ${escapeHtml(recipientLabel)}</p>
+      <p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#3d3a36;"><strong>Asunto:</strong> ${escapeHtml(opts.subject)}</p>
+      ${opts.resendId ? `<p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;color:#6b6560;"><strong>Resend ID:</strong> ${escapeHtml(opts.resendId)}</p>` : ""}
+    </td>
+  </tr>
+</table>
+<p style="margin:16px 0 0;font-size:13px;line-height:1.55;color:#6b6560;">Si el cliente no lo recibe, revisa spam o el estado del envío en el dashboard de Resend.</p>`
+
+  const resend = getResendClient()
+  await resend.emails.send({
+    from: getResendFromEmail(),
+    to: opts.signatureEmail,
+    subject: `Comprobación: enviado a ${opts.toEmail}`,
+    html: wrapEmailHtml(body, "ES"),
+  })
 }
 
 export async function sendEmailAction(formData: FormData): Promise<EmailActionResult> {
@@ -279,6 +333,8 @@ export async function sendEmailAction(formData: FormData): Promise<EmailActionRe
       return { ok: false, error: result.error.message }
     }
 
+    const resendId = result.data?.id ?? null
+
     await prisma.emailSendLog.create({
       data: {
         templateId: templateId || null,
@@ -287,12 +343,27 @@ export async function sendEmailAction(formData: FormData): Promise<EmailActionRe
         toName: ctx.toName,
         subject,
         status: "sent",
-        resendId: result.data?.id ?? null,
+        resendId,
         quoteId: ctx.quoteId,
         inquiryId: ctx.inquiryId,
         customerId: ctx.customerId,
       },
     })
+
+    const confirmationEmail =
+      signature.email?.trim() || process.env.RESEND_REPLY_TO?.trim() || null
+
+    if (confirmationEmail) {
+      void sendSignatureDeliveryConfirmation({
+        signatureEmail: confirmationEmail,
+        toEmail: ctx.toEmail,
+        toName: ctx.toName,
+        subject,
+        resendId,
+        inquiryId: ctx.inquiryId,
+        quoteId: ctx.quoteId,
+      }).catch(() => {})
+    }
 
     if (markQuoteSent && ctx.quoteId) {
       await prisma.quote.update({
@@ -304,7 +375,7 @@ export async function sendEmailAction(formData: FormData): Promise<EmailActionRe
     }
 
     revalidatePath("/dashboard/correos")
-    return { ok: true, resendId: result.data?.id }
+    return { ok: true, resendId }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error al enviar el correo."
     await prisma.emailSendLog.create({

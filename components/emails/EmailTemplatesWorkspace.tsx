@@ -12,6 +12,10 @@ import {
 } from "@/app/actions/email"
 import { EmailSignaturesPanel } from "@/components/emails/EmailSignaturesPanel"
 import {
+  SolicitudAssistantChat,
+  type SolicitudAssistantContext,
+} from "@/components/solicitudes/SolicitudAssistantChat"
+import {
   EMAIL_TEMPLATE_CATEGORY_LABEL,
   EMAIL_TEMPLATE_LOCALE_LABEL,
   EMAIL_VARIABLES,
@@ -21,6 +25,11 @@ import {
   type EmailTemplateCategory,
   type EmailTemplateLocale,
 } from "@/lib/email-templates"
+import {
+  htmlToPlainText,
+  parseAssistantEmailDraft,
+  plainTextToEmailHtml,
+} from "@/lib/email-body-text"
 import type { EmailSignatureListItem } from "@/lib/email-signature-seed"
 
 export type EmailTemplateRow = {
@@ -49,13 +58,20 @@ export type EmailContextOption = {
   email: string | null
 }
 
+export type EmailInquiryOption = EmailContextOption & {
+  firstName: string
+  lastName: string
+  subject: string
+  locale: string | null
+}
+
 type Props = {
   templates: EmailTemplateRow[]
   recentSends: EmailSendLogRow[]
   resendConfigured: boolean
   customers: EmailContextOption[]
   quotes: EmailContextOption[]
-  inquiries: EmailContextOption[]
+  inquiries: EmailInquiryOption[]
   signatures: EmailSignatureListItem[]
   defaultSignatureId?: string | null
   initialTemplateId?: string
@@ -112,6 +128,8 @@ export function EmailTemplatesWorkspace({
   const [description, setDescription] = useState(initial?.description ?? "")
   const [subject, setSubject] = useState(initial?.subject ?? "")
   const [htmlBody, setHtmlBody] = useState(initial?.htmlBody ?? "")
+  const [bodyText, setBodyText] = useState(() => htmlToPlainText(initial?.htmlBody ?? ""))
+  const [bodyMode, setBodyMode] = useState<"text" | "html">("text")
   const [active, setActive] = useState(initial?.active ?? true)
   const [toEmail, setToEmail] = useState("")
   const [customerId, setCustomerId] = useState(initialCustomerId ?? "")
@@ -144,6 +162,8 @@ export function EmailTemplatesWorkspace({
     setDescription(t.description ?? "")
     setSubject(t.subject)
     setHtmlBody(t.htmlBody)
+    setBodyText(htmlToPlainText(t.htmlBody))
+    setBodyMode("text")
     setActive(t.active)
     setPreviewHtml(null)
     setPreviewSubject(null)
@@ -157,9 +177,11 @@ export function EmailTemplatesWorkspace({
     setLocale(localeFilter === "ALL" ? "EN" : localeFilter)
     setDescription("")
     setSubject("")
-    setHtmlBody(
-      '<p>Hi {{customer_first_name}},</p>\n<p></p>\n<p>Best regards,<br/>{{company_name}}</p>'
-    )
+    const starter =
+      "<p>Hi {{customer_first_name}},</p>\n<p></p>\n<p>Best regards,<br/>{{company_name}}</p>"
+    setHtmlBody(starter)
+    setBodyText(htmlToPlainText(starter))
+    setBodyMode("text")
     setActive(true)
     setPreviewHtml(null)
     setActionResult(null)
@@ -208,8 +230,47 @@ export function EmailTemplatesWorkspace({
     }
   }, [subject, htmlBody, locale, includeSignature, signatureId, signatures])
 
+  const assistantInquiry = useMemo((): SolicitudAssistantContext | null => {
+    if (!inquiryId) return null
+    const row = inquiries.find((i) => i.id === inquiryId)
+    if (!row) return null
+    return {
+      id: row.id,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      subject: row.subject,
+      locale: row.locale,
+    }
+  }, [inquiryId, inquiries])
+
+  function applyAssistantDraft(plainText: string) {
+    const parsed = parseAssistantEmailDraft(plainText)
+    if (parsed.subject) setSubject(parsed.subject)
+    setBodyText(parsed.body)
+    setHtmlBody(plainTextToEmailHtml(parsed.body))
+    setBodyMode("text")
+    setTab("edit")
+    setPreviewHtml(null)
+    setActionResult(null)
+  }
+
+  function setBodyModeSafe(mode: "text" | "html") {
+    if (mode === "text" && bodyMode === "html") {
+      setBodyText(htmlToPlainText(htmlBody))
+    }
+    if (mode === "html" && bodyMode === "text") {
+      setHtmlBody(plainTextToEmailHtml(bodyText))
+    }
+    setBodyMode(mode)
+  }
+
+  function updateBodyFromPlainText(next: string) {
+    setBodyText(next)
+    setHtmlBody(plainTextToEmailHtml(next))
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)_minmax(18rem,22rem)]">
       <aside className="space-y-4">
         <div className="rounded-2xl border border-foreground/12 bg-foreground/2 p-3">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -356,17 +417,58 @@ export function EmailTemplatesWorkspace({
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Asunto</span>
                 <input value={subject} onChange={(e) => setSubject(e.target.value)} className={ic} />
               </label>
-              <label className="grid gap-1 sm:col-span-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
-                  Cuerpo HTML
-                </span>
-                <textarea
-                  value={htmlBody}
-                  onChange={(e) => setHtmlBody(e.target.value)}
-                  rows={14}
-                  className={`${ic} font-mono text-xs leading-relaxed`}
-                />
-              </label>
+              <div className="grid gap-1 sm:col-span-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">
+                    Cuerpo del correo
+                  </span>
+                  <div className="flex rounded-lg border border-foreground/12 p-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                    <button
+                      type="button"
+                      onClick={() => setBodyModeSafe("text")}
+                      className={`rounded-md px-2.5 py-1 transition ${
+                        bodyMode === "text"
+                          ? "bg-[#1f1f1f] text-[#E7E2D6]"
+                          : "text-foreground/45 hover:text-foreground/70"
+                      }`}
+                    >
+                      Texto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBodyModeSafe("html")}
+                      className={`rounded-md px-2.5 py-1 transition ${
+                        bodyMode === "html"
+                          ? "bg-[#1f1f1f] text-[#E7E2D6]"
+                          : "text-foreground/45 hover:text-foreground/70"
+                      }`}
+                    >
+                      HTML
+                    </button>
+                  </div>
+                </div>
+                {bodyMode === "text" ? (
+                  <>
+                    <textarea
+                      value={bodyText}
+                      onChange={(e) => updateBodyFromPlainText(e.target.value)}
+                      rows={14}
+                      placeholder="Escribe o pega el mensaje aquí…"
+                      className={`${ic} leading-relaxed`}
+                    />
+                    <p className="text-[11px] text-foreground/40">
+                      Edita el mensaje en texto normal. Se convierte a HTML al guardar o enviar.
+                    </p>
+                  </>
+                ) : (
+                  <textarea
+                    value={htmlBody}
+                    onChange={(e) => setHtmlBody(e.target.value)}
+                    rows={14}
+                    className={`${ic} font-mono text-xs leading-relaxed`}
+                  />
+                )}
+              </div>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -650,6 +752,10 @@ export function EmailTemplatesWorkspace({
             )}
           </div>
         ) : null}
+      </div>
+
+      <div className="min-h-[22rem] overflow-hidden rounded-2xl border border-foreground/12 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)]">
+        <SolicitudAssistantChat inquiry={assistantInquiry} onApplyDraft={applyAssistantDraft} />
       </div>
     </div>
   )

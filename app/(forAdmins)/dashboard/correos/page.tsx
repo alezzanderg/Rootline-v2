@@ -28,7 +28,14 @@ export default async function CorreosPage({ searchParams }: Props) {
     params.inquiry != null
       ? await prisma.serviceInquiry.findUnique({
           where: { id: params.inquiry },
-          select: { locale: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            subject: true,
+            locale: true,
+          },
         })
       : null
 
@@ -69,10 +76,24 @@ export default async function CorreosPage({ searchParams }: Props) {
       where: { status: { in: ["NEW", "READ"] } },
       orderBy: { createdAt: "desc" },
       take: 40,
-      select: { id: true, firstName: true, lastName: true, email: true, subject: true, locale: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        subject: true,
+        locale: true,
+      },
     }),
     listEmailSignaturesForDashboard(),
   ])
+
+  const inquiryOptions = [
+    ...(linkedInquiry && !inquiries.some((i) => i.id === linkedInquiry.id)
+      ? [linkedInquiry]
+      : []),
+    ...inquiries,
+  ]
 
   const resolvedTemplateId =
     params.template ??
@@ -80,12 +101,13 @@ export default async function CorreosPage({ searchParams }: Props) {
     (params.inquiry ? findDefaultTemplate(templates, "INQUIRY", preferredLocale) : undefined)
 
   return (
-    <section className="mx-auto max-w-6xl text-foreground">
+    <section className="mx-auto max-w-[90rem] text-foreground">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-accent">Comunicación</p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Correos</h1>
         <p className="mt-2 text-sm text-foreground/55">
-          Plantillas, firmas del equipo y envío a clientes con Resend.
+          Plantillas, firmas del equipo y envío a clientes con Resend. Usa el asistente a la derecha
+          para redactar respuestas a solicitudes.
         </p>
       </div>
 
@@ -104,10 +126,14 @@ export default async function CorreosPage({ searchParams }: Props) {
             label: `#${quoteNumberFromId(q.id)} · ${q.customer.firstName} ${q.customer.lastName} · $${Number(q.total).toFixed(2)}`,
             email: q.customer.email,
           }))}
-          inquiries={inquiries.map((i) => ({
+          inquiries={inquiryOptions.map((i) => ({
             id: i.id,
             label: `${i.firstName} ${i.lastName} — ${i.subject}${i.locale === "es" ? " · ES" : ""}`,
             email: i.email,
+            firstName: i.firstName,
+            lastName: i.lastName,
+            subject: i.subject,
+            locale: i.locale,
           }))}
           initialTemplateId={resolvedTemplateId}
           initialLocale={params.quote ? "EN" : params.inquiry ? preferredLocale : "EN"}

@@ -55,8 +55,8 @@ function buildNewInquiryNotificationHtml(data: NewInquiryNotificationData): stri
       <p style="margin:0 0 14px;font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;line-height:1.25;color:#1f1f1f;">${escapeHtml(data.subject)}</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
         ${inquiryDetailRow("Nombre", escapeHtml(fullName))}
-        ${inquiryDetailRow("Email", `<a href="mailto:${escapeHtml(data.email)}" style="color:#2d4a35;text-decoration:none;">${escapeHtml(data.email)}</a>`)}
-        ${inquiryDetailRow("Teléfono", `<a href="tel:${escapeHtml(data.phone.replace(/\D/g, ""))}" style="color:#2d4a35;text-decoration:none;">${escapeHtml(data.phone)}</a>`)}
+        ${inquiryDetailRow("Email", escapeHtml(data.email))}
+        ${inquiryDetailRow("Teléfono", escapeHtml(data.phone))}
         ${inquiryDetailRow("Dirección", escapeHtml(data.address))}
         ${inquiryDetailRow("Idioma", escapeHtml(localeLabel))}
       </table>

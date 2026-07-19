@@ -2,12 +2,13 @@ import { businessInfo } from "@/lib/services-data"
 import { absoluteUrl, getSiteUrl } from "@/lib/site-config"
 import { fmtMoney } from "@/lib/quote-document-format"
 import { getPublicQuotePath } from "@/lib/quote-document-format"
+import { stripMailtoAndTelLinks } from "@/lib/email-html"
 
 export type EmailTemplateCategory = "ESTIMATE" | "INQUIRY" | "GENERAL"
 export type EmailTemplateLocale = "EN" | "ES"
 
 /** Bump in email-seed when built-in template copy or layout changes. */
-export const EMAIL_TEMPLATES_SYNC_VERSION = "v2-logo-header"
+export const EMAIL_TEMPLATES_SYNC_VERSION = "v3-no-mailto-tel"
 
 /** PNG for broad email-client support; baked-in background is #151515 (same as admin sidebar). */
 export const EMAIL_LOGO_PATH = "/logoFooter.png"
@@ -131,9 +132,9 @@ export function wrapEmailHtml(
             <td style="padding:22px 32px 26px;border-top:1px solid #ece7dc;background:#f5f2eb;">
               <p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:13px;font-weight:600;color:#2d4a35;">${businessInfo.legalName}</p>
               <p style="margin:0 0 6px;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.55;color:#6b6560;">
-                <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">${businessInfo.phone}</a>
+                ${businessInfo.phone}
                 &nbsp;&middot;&nbsp;
-                <a href="mailto:${businessInfo.email}" style="color:#8b7355;text-decoration:none;">${businessInfo.email}</a>
+                ${businessInfo.email}
               </p>
               <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#6b6560;">
                 <a href="${siteUrl}" style="color:#8b7355;text-decoration:none;">${businessInfo.websiteDisplay}</a>
@@ -141,7 +142,7 @@ export function wrapEmailHtml(
             </td>
           </tr>`
 
-  return `<!DOCTYPE html>
+  return stripMailtoAndTelLinks(`<!DOCTYPE html>
 <html lang="${lang}">
 <head>
   <meta charset="utf-8" />
@@ -184,7 +185,7 @@ export function wrapEmailHtml(
     </tr>
   </table>
 </body>
-</html>`
+</html>`)
 }
 
 function emailButton(label: string, href: string): string {
@@ -226,7 +227,7 @@ const ESTIMATE_EN_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f
 ${emailQuoteCard({ title: "Estimate", total: "Total due" })}
 <p style="margin:0 0 8px;">You can view line items, approve the work, and ask questions from your private estimate page:</p>
 ${emailButton("View estimate", "{{quote_link}}")}
-<p style="margin:0;font-size:14px;color:#6b6560;">Questions? Reply to this email or call us at <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">{{company_phone}}</a>.</p>
+<p style="margin:0;font-size:14px;color:#6b6560;">Questions? Reply to this email or call us at {{company_phone}}.</p>
 <p style="margin:24px 0 0;">Best regards,<br/><strong>The {{company_name}} team</strong></p>`
 
 const ESTIMATE_ES_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f;">Hola {{customer_first_name}},</p>
@@ -234,29 +235,29 @@ const ESTIMATE_ES_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f
 ${emailQuoteCard({ title: "Estimado", total: "Total" })}
 <p style="margin:0 0 8px;">Puedes ver los servicios, aprobar el trabajo y hacer preguntas desde tu página privada:</p>
 ${emailButton("Ver estimado", "{{quote_link}}")}
-<p style="margin:0;font-size:14px;color:#6b6560;">¿Preguntas? Responde a este correo o llámanos al <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">{{company_phone}}</a>.</p>
+<p style="margin:0;font-size:14px;color:#6b6560;">¿Preguntas? Responde a este correo o llámanos al {{company_phone}}.</p>
 <p style="margin:24px 0 0;">Saludos,<br/><strong>El equipo de {{company_name}}</strong></p>`
 
 const INQUIRY_EN_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f;">Hi {{customer_first_name}},</p>
 <p style="margin:0 0 8px;">Thank you for reaching out to <strong>{{company_name}}</strong>. We received your message about <strong>{{inquiry_subject}}</strong> and wanted to follow up.</p>
 ${emailMessageQuote("EN")}
-<p style="margin:0 0 20px;">A member of our team will contact you shortly. If you would like to speak with someone right away, call us at <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">{{company_phone}}</a>.</p>
+<p style="margin:0 0 20px;">A member of our team will contact you shortly. If you would like to speak with someone right away, call us at {{company_phone}}.</p>
 <p style="margin:0;">Thank you,<br/><strong>{{company_name}}</strong></p>`
 
 const INQUIRY_ES_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f;">Hola {{customer_first_name}},</p>
 <p style="margin:0 0 8px;">Gracias por contactar a <strong>{{company_name}}</strong>. Recibimos tu mensaje sobre <strong>{{inquiry_subject}}</strong> y queremos darte seguimiento.</p>
 ${emailMessageQuote("ES")}
-<p style="margin:0 0 20px;">En breve un miembro de nuestro equipo se pondrá en contacto contigo. Si prefieres hablar ahora, llámanos al <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">{{company_phone}}</a>.</p>
+<p style="margin:0 0 20px;">En breve un miembro de nuestro equipo se pondrá en contacto contigo. Si prefieres hablar ahora, llámanos al {{company_phone}}.</p>
 <p style="margin:0;">Gracias,<br/><strong>{{company_name}}</strong></p>`
 
 const GENERAL_EN_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f;">Hi {{customer_first_name}},</p>
 <p style="margin:0 0 20px;">We hope you are doing well. We are reaching out from <strong>{{company_name}}</strong> regarding your property and upcoming service.</p>
-<p style="margin:0 0 20px;">If you have any questions or would like to make changes to your schedule, reply to this email or call us at <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">{{company_phone}}</a>.</p>
+<p style="margin:0 0 20px;">If you have any questions or would like to make changes to your schedule, reply to this email or call us at {{company_phone}}.</p>
 <p style="margin:0;">Best regards,<br/><strong>{{company_name}}</strong></p>`
 
 const GENERAL_ES_BODY = `<p style="margin:0 0 16px;font-size:17px;color:#1f1f1f;">Hola {{customer_first_name}},</p>
 <p style="margin:0 0 20px;">Esperamos que estés bien. Te escribimos desde <strong>{{company_name}}</strong> para dar seguimiento a tu propiedad y servicio.</p>
-<p style="margin:0 0 20px;">Si tienes preguntas o quieres cambiar tu horario, responde a este correo o llámanos al <a href="tel:${businessInfo.phoneTel}" style="color:#8b7355;text-decoration:none;">{{company_phone}}</a>.</p>
+<p style="margin:0 0 20px;">Si tienes preguntas o quieres cambiar tu horario, responde a este correo o llámanos al {{company_phone}}.</p>
 <p style="margin:0;">Saludos,<br/><strong>{{company_name}}</strong></p>`
 
 export type DefaultEmailTemplate = {

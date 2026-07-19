@@ -1,4 +1,5 @@
 import type { Role } from "@/lib/generated/prisma/client"
+import { stripMailtoAndTelLinks } from "@/lib/email-html"
 import { type EmailTemplateLocale } from "@/lib/email-templates"
 
 export type EmailSignatureData = {
@@ -29,20 +30,13 @@ export function buildSignatureFullName(firstName: string, lastName: string): str
   return `${firstName} ${lastName}`.trim()
 }
 
-function formatPhoneTel(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`
-  return phone
-}
-
 export function renderEmailSignatureHtml(data: EmailSignatureData): string {
-  if (data.htmlBody?.trim()) return data.htmlBody.trim()
+  if (data.htmlBody?.trim()) return stripMailtoAndTelLinks(data.htmlBody.trim())
 
   const phoneLine = data.phone?.trim()
-    ? `<a href="tel:${formatPhoneTel(data.phone)}" style="color:#6b6560;text-decoration:none;">${data.phone}</a>`
+    ? `<span style="color:#6b6560;">${data.phone}</span>`
     : ""
-  const emailLine = `<a href="mailto:${data.email}" style="color:#8b7355;text-decoration:none;">${data.email}</a>`
+  const emailLine = `<span style="color:#8b7355;">${data.email}</span>`
   const contactLine = [phoneLine, emailLine].filter(Boolean).join(
     phoneLine ? " &nbsp;&middot;&nbsp; " : ""
   )
