@@ -48,7 +48,7 @@ export function QuoteActivityTimeline({
   const sectionTitle = "text-[11px] font-semibold uppercase tracking-wider text-foreground/40"
 
   return (
-    <div className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
+    <div className="rounded-2xl border border-foreground/12 bg-card p-4">
       <p className={sectionTitle}>Actividad</p>
 
       {visible.length === 0 ? (

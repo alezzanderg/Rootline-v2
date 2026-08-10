@@ -837,7 +837,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
             <div className="min-w-0">
               <Link
                 href={`/dashboard/clientes/${quote.customer.id}`}
-                className="inline-block font-display text-3xl font-semibold leading-tight text-cream underline-offset-8 transition hover:text-[#e8845f] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#e8845f] sm:text-4xl"
+                className="inline-block font-display text-3xl font-semibold leading-tight text-cream underline-offset-8 transition hover:text-terra-on-dark hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-terra-on-dark sm:text-4xl"
               >
                 {customerName}
               </Link>
@@ -867,7 +867,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
               label={quoteRef}
               copiedLabel="Copiado"
               title="Copiar referencia del estimado"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cream/15 px-2.5 py-1.5 font-mono text-xs tracking-wide text-cream/55 transition hover:border-cream/30 hover:text-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8845f]"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cream/15 px-2.5 py-1.5 font-mono text-xs tracking-wide text-cream/55 transition hover:border-cream/30 hover:text-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-on-dark"
             />
           </div>
 
@@ -881,7 +881,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
                   Yard {PLAN_TIER_LABEL[planTier]}
                 </span>
                 {isExpired ? (
-                  <span className="inline-flex items-center rounded-full bg-[#e8845f]/20 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-[#f0a184]">
+                  <span className="inline-flex items-center rounded-full bg-terra-on-dark/20 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-terra-on-dark-hover">
                     Venció el {quote.validUntil ? fmtShort(quote.validUntil) : "—"}
                   </span>
                 ) : null}
@@ -980,7 +980,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
                 <input type="checkbox" name="required" defaultChecked />
                 Obligatorio
               </label>
-              <button type="submit" className="rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:bg-foreground/85 sm:col-span-2">
+              <button type="submit" className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-cream transition hover:bg-forest/90 sm:col-span-2">
                 Crear grupo
               </button>
             </form>
@@ -1279,7 +1279,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
                   <span className="block text-[11px] text-foreground/45">Suma el primer ciclo del plan elegido al total a pagar hoy.</span>
                 </span>
               </label>
-              <button type="submit" className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition hover:bg-foreground/85">
+              <button type="submit" className="w-full rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-cream transition hover:bg-forest/90">
                 Guardar cambios
               </button>
             </div>

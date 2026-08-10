@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Check } from "lucide-react"
+import { Check, Settings2, Trash2 } from "lucide-react"
 
 import {
   selectQuoteOptionAction,
@@ -52,10 +52,18 @@ const INTERVALS: [EstimadoRecurringInterval, string][] = [
   ["YEARLY", "Anual"],
 ]
 
-const LINE_TYPE_BADGE: Record<EstimadoLineType, string> = {
-  REQUIRED: "border-foreground/15 bg-foreground/5 text-foreground/55",
-  OPTION: "border-blue-300/40 bg-blue-50 text-blue-700",
-  ADDON: "border-violet-300/40 bg-violet-50/80 text-violet-700",
+/**
+ * Only the exceptions get a badge.
+ *
+ * Every line used to carry up to five chips across four colour families —
+ * line type, recurring, recommended, group, save state — before the reader
+ * reached the service name. REQUIRED is the default case and the majority of
+ * rows, so it now says nothing at all: a row with no badge is an ordinary one.
+ */
+const LINE_TYPE_BADGE: Record<EstimadoLineType, string | null> = {
+  REQUIRED: null,
+  OPTION: "border-foreground/20 bg-foreground/5 text-foreground/60",
+  ADDON: "border-foreground/20 bg-foreground/5 text-foreground/60",
 }
 const LINE_TYPE_LABEL: Record<EstimadoLineType, string> = {
   REQUIRED: "Requerido",
@@ -113,41 +121,57 @@ function LineRow({
   const dimmed = item.lineType !== "REQUIRED" && !item.isSelected
 
   return (
-    <li className={`px-4 py-3 ${item.isRecurring ? "bg-amber-50/40" : ""} ${dimmed ? "opacity-60" : ""}`}>
+    <li
+      className={`group relative px-4 py-3 ${dimmed ? "opacity-60" : ""} ${
+        // A recurring line gets a moss edge instead of a full-row amber wash:
+        // scannable down the list, and it does not tint the card underneath.
+        item.isRecurring ? "border-l-2 border-l-moss pl-[calc(1rem-2px)]" : ""
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <p className="font-medium">{item.name}</p>
-          <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${LINE_TYPE_BADGE[item.lineType]}`}>
-            {LINE_TYPE_LABEL[item.lineType]}
-          </span>
-          {item.isRecurring ? (
-            <span className="shrink-0 rounded border border-amber-400/40 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-              Recurrente
+          {LINE_TYPE_BADGE[item.lineType] ? (
+            <span
+              className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${LINE_TYPE_BADGE[item.lineType]}`}
+            >
+              {LINE_TYPE_LABEL[item.lineType]}
             </span>
           ) : null}
           {item.recommended ? (
-            <span className="shrink-0 rounded border border-emerald-400/40 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+            <span className="shrink-0 rounded border border-accent/35 bg-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
               {item.badgeLabel || "Recomendado"}
             </span>
           ) : null}
-          {group ? <span className="shrink-0 text-[10px] text-foreground/40">grupo: {group.title}</span> : null}
+          {group ? <span className="shrink-0 text-[10px] text-foreground/40">{group.title}</span> : null}
           {isPending ? (
             <span className="text-[10px] text-foreground/40">guardando…</span>
           ) : justSaved ? (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-600">
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-moss">
               <Check className="h-3 w-3" /> Guardado
             </span>
           ) : null}
         </div>
-        <div className="text-right">
-          <p className={`tabular-nums text-sm font-semibold ${item.isRecurring ? "text-amber-700" : ""}`}>
+        <div className="flex shrink-0 items-baseline gap-2">
+          <p className="tabular-nums text-sm font-semibold">
             ${liveTotal.toFixed(2)}
-            {item.isRecurring ? <span className="text-[10px] font-normal text-foreground/45">/ciclo</span> : null}
+            {item.isRecurring ? (
+              <span className="text-[10px] font-normal text-foreground/45">/ciclo</span>
+            ) : null}
           </p>
-          <form action={removeItemAction} className="mt-0.5">
+          {/* Removing a line is destructive and was sitting at the same weight
+              as the price on every row. It stays reachable by keyboard. */}
+          <form action={removeItemAction}>
             <input type="hidden" name="quoteId" value={quoteId} />
             <input type="hidden" name="itemId" value={item.id} />
-            <button type="submit" className="text-xs text-rose-600 hover:underline">Quitar</button>
+            <button
+              type="submit"
+              aria-label={`Quitar ${item.name} del estimado`}
+              title="Quitar del estimado"
+              className="rounded p-1 text-foreground/25 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 group-hover:opacity-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </form>
         </div>
       </div>
@@ -161,11 +185,11 @@ function LineRow({
             type="submit"
             className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
               item.isSelected
-                ? "border-emerald-500/40 bg-emerald-50 text-emerald-700"
+                ? "border-moss/45 bg-moss/12 text-forest"
                 : "border-foreground/20 text-foreground/55 hover:bg-foreground/5"
             }`}
           >
-            {item.isSelected ? "✓ Seleccionada por defecto" : "Marcar como seleccionada"}
+            {item.isSelected ? "Seleccionada por defecto" : "Marcar como seleccionada"}
           </button>
         </form>
       ) : null}
@@ -187,8 +211,9 @@ function LineRow({
 
       {/* Per-line options config */}
       <details className="mt-2">
-        <summary className="cursor-pointer list-none text-[11px] font-semibold text-foreground/45 hover:text-foreground/70">
-          ⚙︎ Configurar opción
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[11px] font-semibold text-foreground/45 transition hover:text-foreground/70">
+          <Settings2 className="h-3 w-3" />
+          Ajustes de la línea
         </summary>
         <form action={updateItemOptionsAction} className="mt-2 grid gap-2 rounded-xl border border-foreground/12 bg-foreground/2 p-3 sm:grid-cols-2">
           <input type="hidden" name="quoteId" value={quoteId} />
@@ -235,7 +260,7 @@ function LineRow({
             <input type="checkbox" name="recommended" defaultChecked={item.recommended} />
             Recomendado
           </label>
-          <button type="submit" className="rounded-lg bg-foreground px-3 py-2 text-xs font-semibold text-background transition hover:bg-foreground/85 sm:col-span-2">
+          <button type="submit" className="rounded-lg bg-forest px-3 py-2 text-xs font-semibold text-cream transition hover:bg-forest/90 sm:col-span-2">
             Guardar opciones
           </button>
         </form>
@@ -266,10 +291,12 @@ export function EstimadoLineItems({
   removeItemAction: (formData: FormData) => Promise<void>
 }) {
   return (
-    <div className="rounded-2xl border border-foreground/12 bg-white/50">
-      <div className="border-b border-foreground/10 px-4 py-3 text-sm font-semibold">
-        Líneas del estimado
-        <span className="ml-2 text-xs font-normal text-foreground/40">Edita con Tab · ⚙︎ para opciones</span>
+    <div className="rounded-2xl border border-foreground/12 bg-card">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-foreground/10 px-4 py-3">
+        <p className="text-sm font-semibold">Líneas del estimado</p>
+        <p className="text-xs text-foreground/40">
+          Edita los campos y sal con Tab para guardar
+        </p>
       </div>
       {items.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-foreground/45">Aún no tiene líneas.</p>
@@ -287,19 +314,26 @@ export function EstimadoLineItems({
           ))}
         </ul>
       )}
+      {/* The masthead carries the authoritative figure. This one exists because
+          you cannot see the masthead while editing the bottom of a long list,
+          so it is weighted as a running tally, not as a second headline. */}
       <div className="border-t border-foreground/10 bg-foreground/2 px-4 py-3">
-        <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
-          <div className="flex items-center justify-between text-foreground/65">
-            <span>Subtotal hoy</span>
+        <div className="ml-auto w-full max-w-xs space-y-1 text-sm">
+          <div className="flex items-center justify-between text-xs text-foreground/50">
+            <span>Subtotal</span>
             <span className="tabular-nums">${subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex items-center justify-between text-foreground/65">
-            <span>Tax ({taxRatePercent.toFixed(3)}%)</span>
+          <div className="flex items-center justify-between text-xs text-foreground/50">
+            <span>Impuesto ({taxRatePercent.toFixed(3)}%)</span>
             <span className="tabular-nums">${tax.toFixed(2)}</span>
           </div>
-          <div className="flex items-center justify-between border-t border-foreground/12 pt-1.5 font-semibold text-foreground">
-            <span>Total a pagar hoy</span>
-            <span className="tabular-nums">${total.toFixed(2)}</span>
+          <div className="flex items-baseline justify-between border-t border-foreground/12 pt-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/45">
+              A pagar hoy
+            </span>
+            <span className="font-display text-lg font-bold tabular-nums text-forest">
+              ${total.toFixed(2)}
+            </span>
           </div>
         </div>
       </div>

@@ -36,12 +36,12 @@ function fmt(iso: string): string {
 function Node({ step }: { step: RailStep }) {
   const dot =
     step.state === "failed"
-      ? "border-[#e08a70] bg-[#e08a70] text-[#1e2d23]"
+      ? "border-rose-on-dark bg-rose-on-dark text-forest"
       : step.state === "done"
-        ? "border-[#8faa6f] bg-[#8faa6f] text-[#1e2d23]"
+        ? "border-moss-light bg-moss-light text-forest"
         : step.state === "current"
-          ? "border-[#e8845f] bg-[#1e2d23] text-[#e8845f] ring-4 ring-[#e8845f]/20"
-          : "border-[#e7e2d6]/25 bg-transparent text-transparent"
+          ? "border-terra-on-dark bg-forest text-terra-on-dark ring-4 ring-terra-on-dark/20"
+          : "border-cream/25 bg-transparent text-transparent"
 
   return (
     <div
@@ -62,15 +62,15 @@ function Node({ step }: { step: RailStep }) {
 function Caption({ step }: { step: RailStep }) {
   const tone =
     step.state === "future"
-      ? "text-[#e7e2d6]/35"
+      ? "text-cream/35"
       : step.state === "current"
-        ? "text-[#e7e2d6]"
-        : "text-[#e7e2d6]/70"
+        ? "text-cream"
+        : "text-cream/70"
 
   return (
     <div className="min-w-0">
       <p className={`text-[11px] font-semibold uppercase tracking-wider ${tone}`}>{step.label}</p>
-      <p className="mt-0.5 text-[11px] tabular-nums text-[#e7e2d6]/45">
+      <p className="mt-0.5 text-[11px] tabular-nums text-cream/45">
         {step.at ? fmt(step.at) : (step.pending ?? "—")}
       </p>
     </div>
@@ -100,7 +100,7 @@ export function QuoteStateRail({
               {i < steps.length - 1 ? (
                 <span
                   className={`mt-1 w-0.5 flex-1 rounded-full ${
-                    steps[i + 1].state === "future" ? "bg-[#e7e2d6]/15" : "bg-[#8faa6f]/50"
+                    steps[i + 1].state === "future" ? "bg-cream/15" : "bg-moss-light/50"
                   }`}
                 />
               ) : null}
@@ -123,7 +123,7 @@ export function QuoteStateRail({
             {i < steps.length - 1 ? (
               <span
                 className={`mt-2.5 h-0.5 min-w-6 flex-1 rounded-full ${
-                  steps[i + 1].state === "future" ? "bg-[#e7e2d6]/15" : "bg-[#8faa6f]/50"
+                  steps[i + 1].state === "future" ? "bg-cream/15" : "bg-moss-light/50"
                 }`}
                 aria-hidden
               />
@@ -133,11 +133,11 @@ export function QuoteStateRail({
       </ol>
 
       {action ? (
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#e7e2d6]/12 pt-4">
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-cream/12 pt-4">
           {"href" in action ? (
             <Link
               href={action.href}
-              className="inline-flex items-center rounded-xl bg-[#e8845f] px-4 py-2.5 text-sm font-semibold text-[#1e2d23] transition hover:bg-[#f0906b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8845f]"
+              className="inline-flex items-center rounded-xl bg-terra-on-dark px-4 py-2.5 text-sm font-semibold text-forest transition hover:bg-terra-on-dark-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-on-dark"
             >
               {action.label}
             </Link>
@@ -148,14 +148,14 @@ export function QuoteStateRail({
               ))}
               <SubmitButton
                 pendingLabel="Guardando…"
-                className="inline-flex items-center rounded-xl bg-[#e8845f] px-4 py-2.5 text-sm font-semibold text-[#1e2d23] transition hover:bg-[#f0906b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8845f]"
+                className="inline-flex items-center rounded-xl bg-terra-on-dark px-4 py-2.5 text-sm font-semibold text-forest transition hover:bg-terra-on-dark-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra-on-dark"
               >
                 {action.label}
               </SubmitButton>
             </form>
           )}
           {action.hint ? (
-            <p className="max-w-sm text-xs leading-snug text-[#e7e2d6]/50">{action.hint}</p>
+            <p className="max-w-sm text-xs leading-snug text-cream/50">{action.hint}</p>
           ) : null}
         </div>
       ) : null}

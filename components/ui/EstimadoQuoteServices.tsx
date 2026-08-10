@@ -27,7 +27,7 @@ export type EstimadoPlanOption = {
 }
 
 const ic =
-  "rounded-xl border border-foreground/20 bg-white/70 px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15"
+  "rounded-xl border border-foreground/20 bg-card px-3 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15"
 const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
 const WEEKDAYS = [
@@ -78,17 +78,20 @@ function ServiceCard({
       type="button"
       onClick={add}
       disabled={isPending || price == null}
-      className="group relative flex min-h-[78px] flex-col justify-between rounded-2xl border border-foreground/15 bg-white/70 p-3 text-left transition hover:border-accent/50 hover:bg-accent/5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+      className="group relative flex min-h-[78px] flex-col justify-between rounded-2xl border border-foreground/15 bg-card p-3 text-left transition hover:border-accent/50 hover:bg-accent/5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span className="line-clamp-2 text-sm font-semibold leading-snug text-foreground/85">{service.name}</span>
       <span className="mt-1 flex items-center justify-between">
-        <span className="text-sm font-bold tabular-nums text-accent">{fmt(price)}</span>
-        <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-bold text-accent opacity-0 transition group-hover:opacity-100">
+        {/* Price reads as data, not as a call to action. It used to be accent,
+            so a grid of nine services was a wall of terracotta and the money
+            looked like a warning. The accent now means only "you can act". */}
+        <span className="text-sm font-bold tabular-nums text-forest">{fmt(price)}</span>
+        <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-bold text-accent opacity-0 transition group-focus-visible:opacity-100 group-hover:opacity-100">
           + Agregar
         </span>
       </span>
       {isPending ? (
-        <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60 text-xs font-semibold text-accent">
+        <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-card text-xs font-semibold text-accent">
           Agregando…
         </span>
       ) : null}
@@ -96,6 +99,12 @@ function ServiceCard({
   )
 }
 
+/**
+ * Membership plan card. Moss is the recurring colour across this page — these
+ * cards and the left edge on recurring ticket lines — so a plan reads as the
+ * same kind of thing in both places. Amber was a fourth colour family doing
+ * the same job.
+ */
 function PlanCard({
   label,
   priceLabel,
@@ -117,16 +126,16 @@ function PlanCard({
       onClick={onClick}
       disabled={pending}
       className={`relative flex min-h-[78px] flex-col justify-between rounded-2xl border p-3 text-left transition active:scale-[0.98] disabled:opacity-50 ${
-        active ? "border-amber-500/60 bg-amber-100/60" : "border-amber-400/30 bg-amber-50/50 hover:border-amber-500/50 hover:bg-amber-100/50"
+        active ? "border-moss/60 bg-moss/15" : "border-moss/25 bg-moss/6 hover:border-moss/50 hover:bg-moss/12"
       }`}
     >
       <span className="line-clamp-2 text-sm font-semibold leading-snug text-foreground/85">{label}</span>
       <span className="mt-1 flex items-baseline justify-between">
-        <span className="text-sm font-bold tabular-nums text-amber-800">{priceLabel}</span>
-        {sublabel ? <span className="text-[10px] text-amber-800/60">{sublabel}</span> : null}
+        <span className="text-sm font-bold tabular-nums text-forest">{priceLabel}</span>
+        {sublabel ? <span className="text-[10px] text-forest/55">{sublabel}</span> : null}
       </span>
       {pending ? (
-        <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60 text-xs font-semibold text-amber-800">
+        <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-card text-xs font-semibold text-forest">
           Agregando…
         </span>
       ) : null}
@@ -271,7 +280,7 @@ export function EstimadoQuoteServices({
   return (
     <div className="space-y-4">
       {/* Frequency + tier */}
-      <div className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
+      <div className="rounded-2xl border border-foreground/12 bg-card p-4">
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <p className="text-sm font-semibold text-foreground/80">Frecuencia</p>
@@ -333,7 +342,7 @@ export function EstimadoQuoteServices({
       <div>
         <p className="mb-2 text-sm font-semibold text-foreground/80">Servicio / add-on personalizado</p>
         {customOpen ? (
-          <div className="grid gap-2 rounded-2xl border border-foreground/15 bg-white/60 p-3">
+          <div className="grid gap-2 rounded-2xl border border-foreground/15 bg-card p-3">
             <label className="grid gap-1">
               <span className={lbl}>Nombre</span>
               <input value={csName} onChange={(e) => setCsName(e.target.value)} placeholder="Ej. Limpieza profunda" className={ic} autoFocus />
@@ -386,7 +395,7 @@ export function EstimadoQuoteServices({
       </div>
 
       {/* Membership plans */}
-      <div className="rounded-2xl border border-amber-400/30 bg-amber-50/30 p-4">
+      <div className="rounded-2xl border border-moss/25 bg-moss/6 p-4">
         <p className="text-sm font-semibold text-foreground/80">Plan de membresía (recurrente)</p>
         <p className="mt-1 text-xs text-foreground/45">
           Define el horario y toca un plan. Se cobra por ciclo, aparte del total de hoy; al aprobar se asigna la membresía.
@@ -431,7 +440,7 @@ export function EstimadoQuoteServices({
             type="button"
             onClick={() => setShowCustom((v) => !v)}
             className={`flex min-h-[78px] flex-col items-center justify-center gap-1 rounded-2xl border border-dashed p-3 text-center transition ${
-              showCustom ? "border-amber-500/60 bg-amber-100/50 text-amber-800" : "border-amber-400/40 text-amber-700 hover:bg-amber-50"
+              showCustom ? "border-moss/60 bg-moss/15 text-forest" : "border-moss/35 text-forest/70 hover:bg-moss/8"
             }`}
           >
             <span className="text-lg leading-none">+</span>
@@ -440,7 +449,7 @@ export function EstimadoQuoteServices({
         </div>
 
         {showCustom ? (
-          <div className="mt-3 grid gap-2 rounded-xl border border-amber-400/30 bg-white/60 p-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-2 rounded-xl border border-moss/25 bg-card p-3 sm:grid-cols-2">
             <label className="grid gap-1 sm:col-span-2">
               <span className={lbl}>Nombre del plan</span>
               <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Ej. Plan semanal personalizado" className={ic} />
@@ -457,7 +466,7 @@ export function EstimadoQuoteServices({
               type="button"
               onClick={addCustomPlan}
               disabled={planPending || !customName.trim() || !customPrice.trim()}
-              className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50 sm:col-span-2"
+              className="rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-cream transition hover:bg-forest/90 disabled:opacity-50 sm:col-span-2"
             >
               {planPending && pendingPlanId === "custom" ? "Agregando…" : "Agregar plan personalizado"}
             </button>

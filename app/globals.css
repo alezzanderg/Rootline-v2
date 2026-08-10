@@ -18,6 +18,13 @@
   --admin-border-strong: rgb(255 255 255 / 0.15);
   /* Popovers sit on the light content area, not the dark shell. */
   --admin-popover: #fdfcf8;
+
+  /* On forest. --terra and --moss are tuned for cream backgrounds and go muddy
+     on a dark ground, so the masthead and the state rail use these lifted
+     variants instead. */
+  --terra-on-dark: #e8845f;
+  --terra-on-dark-hover: #f0906b;
+  --rose-on-dark: #e08a70;
 }
 
 @theme inline {
@@ -45,6 +52,9 @@
   --color-admin-surface-raised: var(--admin-surface-raised);
   --color-admin-surface-hover: var(--admin-surface-hover);
   --color-admin-popover: var(--admin-popover);
+  --color-terra-on-dark: var(--terra-on-dark);
+  --color-terra-on-dark-hover: var(--terra-on-dark-hover);
+  --color-rose-on-dark: var(--rose-on-dark);
   --color-border: rgb(30 45 35 / 0.14);
   --font-sans: var(--font-body);
   --font-display: var(--font-display-family);
