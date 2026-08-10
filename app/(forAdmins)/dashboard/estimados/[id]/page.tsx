@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { AlertTriangle, Eye, Mail, MapPin, MoreVertical, Phone, Send, User } from "lucide-react"
+import { AlertTriangle, Eye, Mail, MapPin, MoreVertical, Phone, Send } from "lucide-react"
 
 import { EstimadoLineItems, type EstimadoLineItem } from "@/components/ui/EstimadoLineItems"
 import { EstimadoQuoteServices, type EstimadoServiceOption } from "@/components/ui/EstimadoQuoteServices"
@@ -10,7 +10,9 @@ import { MercuryInvoicePanel } from "@/components/quotes/MercuryInvoicePanel"
 import { ManualPaymentPanel } from "@/components/quotes/ManualPaymentPanel"
 import { StripeCheckoutPanel } from "@/components/quotes/StripeCheckoutPanel"
 import { QuotePublicLinkPanel } from "@/components/quotes/QuotePublicLinkPanel"
+import { QuoteStateRail, type RailStep } from "@/components/quotes/QuoteStateRail"
 import { ActionBanner } from "@/components/ui/ActionBanner"
+import { CopyButton } from "@/components/ui/CopyButton"
 import { SubmitButton } from "@/components/ui/SubmitButton"
 import {
   ActionError,
@@ -30,7 +32,7 @@ import { createOptionGroupAction, deleteOptionGroupAction } from "@/lib/quote-op
 import { prisma } from "@/lib/prisma"
 import { serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 import { QUOTE_FREQUENCY_LABEL, SERVICE_CATEGORY_LABEL } from "@/lib/quote-labels"
-import { jobStatus, quoteStatus, quoteStatusResolved, STATUS_CHIP } from "@/lib/status-ui"
+import { isQuoteExpired, jobStatus, quoteStatus, STATUS_CHIP } from "@/lib/status-ui"
 import { inferPlanTierFromLotSqFt, PLAN_TIER_LABEL, type PlanTier } from "@/lib/service-pricing"
 
 type Props = {
@@ -600,7 +602,6 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
   }))
 
   const statusLabel = (s: string) => quoteStatus(s).label
-  const resolvedStatus = quoteStatusResolved(quote.status, quote.validUntil)
 
   const ic =
     "rounded-xl border border-foreground/20 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-accent"
@@ -674,6 +675,108 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
 
   const customerPhoneDigits = quote.customer.phone?.replace(/\D/g, "") ?? ""
 
+  // ── Masthead + state rail ────────────────────────────────────────────────
+  const quoteRef = `EST-${quote.id.slice(0, 8).toUpperCase()}`
+  const [dollars, cents] = Number(quote.total).toFixed(2).split(".")
+  const isExpired = isQuoteExpired(quote.status, quote.validUntil)
+  const fmtShort = (d: Date) =>
+    new Intl.DateTimeFormat("es-US", { day: "numeric", month: "short" }).format(d)
+
+  const answered = quote.approvedAt ?? quote.rejectedAt
+  const wasRejected = quote.status === "REJECTED"
+
+  /**
+   * Where the estimate actually is, decided once.
+   *
+   * The rail's "current" node and the action button both read this, so they can
+   * never disagree — an earlier version derived them separately and ended up
+   * highlighting Cobro while the button offered to create the job.
+   */
+  const nextStep: "sent" | "answered" | "job" | "paid" | null = wasRejected
+    ? null
+    : quote.status === "DRAFT"
+      ? "sent"
+      : quote.status === "SENT"
+        ? "answered"
+        : quote.status === "APPROVED" && !existingJob
+          ? "job"
+          : quote.status === "APPROVED" && !quote.paidAt
+            ? "paid"
+            : null
+
+  const stepState = (key: string, done: boolean): RailStep["state"] =>
+    done ? "done" : nextStep === key ? "current" : "future"
+
+  /**
+   * The milestones in the order the business actually works: the customer
+   * approves, you schedule the visit, you do it, then you collect. Each node is
+   * backed by a real column, so a node without a date means that stage has not
+   * happened.
+   */
+  const railSteps: RailStep[] = [
+    { key: "created", label: "Creado", at: quote.createdAt.toISOString(), state: "done" },
+    {
+      key: "sent",
+      label: "Enviado",
+      at: iso(quote.sentAt),
+      pending: "sin enviar",
+      state: stepState("sent", Boolean(quote.sentAt)),
+    },
+    {
+      key: "answered",
+      label: wasRejected ? "Rechazado" : "Respuesta",
+      at: iso(answered),
+      pending: "esperando",
+      state: wasRejected ? "failed" : stepState("answered", Boolean(answered)),
+    },
+    {
+      key: "job",
+      label: "Trabajo",
+      at: existingJob ? existingJob.scheduledAt.toISOString() : null,
+      pending: "sin programar",
+      state: wasRejected ? "future" : stepState("job", Boolean(existingJob)),
+    },
+    {
+      key: "paid",
+      label: "Cobro",
+      at: iso(quote.paidAt),
+      pending: "pendiente",
+      state: wasRejected ? "future" : stepState("paid", Boolean(quote.paidAt)),
+    },
+  ]
+
+  /** The single next move. Same source of truth as the rail's current node. */
+  const railAction: React.ComponentProps<typeof QuoteStateRail>["action"] =
+    nextStep === "sent"
+      ? {
+          label: "Enviar al cliente",
+          hint: "Abre el redactor de correo con este estimado adjunto.",
+          href: `/dashboard/correos?quote=${quote.id}`,
+        }
+      : nextStep === "answered"
+        ? {
+            label: "Registrar respuesta",
+            hint: isExpired
+              ? "Venció, así que el cliente ya no puede aceptarlo desde el enlace público."
+              : "El cliente puede aceptarlo desde el enlace. Márcalo aquí si respondió por teléfono.",
+            href: "#estado-manual",
+          }
+        : nextStep === "job"
+          ? {
+              label: "Crear el trabajo",
+              hint: quote.propertyId
+                ? "Programa la visita con los servicios de este estimado."
+                : "Primero asigna una propiedad más abajo.",
+              href: "#operacion",
+            }
+          : nextStep === "paid"
+            ? {
+                label: "Registrar el cobro",
+                hint: "El trabajo ya está programado. Falta marcar el pago.",
+                href: "#cobro",
+              }
+            : undefined
+
   return (
     <section className="text-foreground">
       {/* Top bar */}
@@ -723,50 +826,87 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
         </div>
       </div>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent">Estimado</p>
-          <Link
-            href={`/dashboard/clientes/${quote.customer.id}`}
-            className="mt-1 inline-flex items-center gap-2 font-display text-3xl font-semibold transition hover:text-accent sm:text-4xl"
-          >
-            {customerName}
-            <User className="h-4 w-4 shrink-0 text-foreground/30" />
-          </Link>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground/55">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
-              {propertyAddress}
-            </span>
-            {quote.customer.phone ? (
-              <a href={`tel:${customerPhoneDigits}`} className="flex items-center gap-1.5 transition hover:text-accent">
-                <Phone className="h-3.5 w-3.5 shrink-0" />
-                {quote.customer.phone}
-              </a>
-            ) : null}
-            {quote.customer.email ? (
-              <a href={`mailto:${quote.customer.email}`} className="flex items-center gap-1.5 transition hover:text-accent">
-                <Mail className="h-3.5 w-3.5 shrink-0" />
-                {quote.customer.email}
-              </a>
-            ) : null}
+      {/* Masthead.
+          The content area of this panel is cream on cream, which flattens every
+          page into one field of pale rectangles. Pulling the shell's own forest
+          surface onto this page gives the two facts that matter — how much, and
+          where is it — somewhere to land. */}
+      <div className="overflow-hidden rounded-3xl bg-forest text-cream">
+        <div className="p-5 sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <Link
+                href={`/dashboard/clientes/${quote.customer.id}`}
+                className="inline-block font-display text-3xl font-semibold leading-tight text-cream underline-offset-8 transition hover:text-[#e8845f] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#e8845f] sm:text-4xl"
+              >
+                {customerName}
+              </Link>
+
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-cream/55">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  {propertyAddress}
+                </span>
+                {quote.customer.phone ? (
+                  <a href={`tel:${customerPhoneDigits}`} className="flex items-center gap-1.5 transition hover:text-cream">
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    {quote.customer.phone}
+                  </a>
+                ) : null}
+                {quote.customer.email ? (
+                  <a href={`mailto:${quote.customer.email}`} className="flex items-center gap-1.5 transition hover:text-cream">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    {quote.customer.email}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+
+            <CopyButton
+              value={quoteRef}
+              label={quoteRef}
+              copiedLabel="Copiado"
+              title="Copiar referencia del estimado"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cream/15 px-2.5 py-1.5 font-mono text-xs tracking-wide text-cream/55 transition hover:border-cream/30 hover:text-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8845f]"
+            />
           </div>
-          {/* El aviso detallado y el selector viven juntos en la tarjeta
-              Propiedad del sidebar, para no repetir la misma alerta dos veces. */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className={`${STATUS_CHIP} ${resolvedStatus.badge}`}>{resolvedStatus.label}</span>
-            <span className={chip}>{QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}</span>
-            <span className={chip}>{PLAN_TIER_LABEL[planTier]}</span>
-            <span className={`${chip} font-mono text-foreground/40`}>#{quote.id.slice(0, 8)}</span>
+
+              {/* Terms of the quote sit with the customer, not between the
+                  amount and the rail: those two belong side by side. */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center rounded-full bg-cream/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-cream/70">
+                  {QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-cream/10 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-cream/70">
+                  Yard {PLAN_TIER_LABEL[planTier]}
+                </span>
+                {isExpired ? (
+                  <span className="inline-flex items-center rounded-full bg-[#e8845f]/20 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-[#f0a184]">
+                    Venció el {quote.validUntil ? fmtShort(quote.validUntil) : "—"}
+                  </span>
+                ) : null}
+              </div>
+
+          {/* The amount anchors the block; the rail below is the hero. Cents sit
+              at lower contrast so the dollars read first at a glance. */}
+          <div className="mt-6 flex flex-wrap items-end gap-x-5 gap-y-1">
+            <p className="font-display text-[2.75rem] leading-[0.9] font-bold tabular-nums tracking-tight text-cream sm:text-6xl">
+              <span className="text-cream/50">$</span>
+              {dollars}
+              <span className="text-cream/45">.{cents}</span>
+            </p>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pb-1 text-xs text-cream/45">
+              {hasRecurring ? (
+                <span className="rounded-full bg-cream/10 px-2 py-0.5 font-semibold tracking-wide text-cream/70">
+                  a pagar hoy
+                </span>
+              ) : null}
+              <span className="tabular-nums">Subtotal ${Number(quote.subtotal).toFixed(2)}</span>
+              <span className="tabular-nums">Impuesto ${Number(quote.tax).toFixed(2)}</span>
+            </div>
           </div>
-        </div>
-        <div className="rounded-2xl border border-foreground/12 bg-white/50 px-5 py-4 text-right">
-          <p className={sectionTitle}>Total {hasRecurring ? "hoy" : ""}</p>
-          <p className="mt-0.5 font-display text-3xl font-bold tabular-nums text-forest">${Number(quote.total).toFixed(2)}</p>
-          <p className="text-[11px] text-foreground/40 tabular-nums">
-            Sub ${Number(quote.subtotal).toFixed(2)} · Tax ${Number(quote.tax).toFixed(2)}
-          </p>
+
+          <QuoteStateRail steps={railSteps} action={railAction} />
         </div>
       </div>
 
@@ -803,7 +943,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
           />
 
           {/* Option groups manager */}
-          <div className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
+          <div className="rounded-2xl border border-foreground/12 bg-card p-4">
             <p className={sectionTitle}>Grupos de opciones</p>
             <p className="mt-1 text-xs text-foreground/45">
               Agrupa líneas como opciones a elegir (el cliente elige una). Marca cada línea como Opción y asígnala a un grupo en su menú ⚙︎.
@@ -849,9 +989,26 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
 
         {/* Right: sidebar */}
         <div className="space-y-4">
-          {/* Estado */}
-          <div className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
-            <p className={sectionTitle}>Estado del estimado</p>
+          {/* Estado manual.
+              The rail carries the forward move; this is the correction path for
+              when the customer answers by phone, or when a status was set by
+              mistake. Demoted to a disclosure so it stops competing with the
+              rail for the same job. */}
+          <details id="estado-manual" className="group scroll-mt-28 rounded-2xl border border-foreground/12 bg-card p-4 open:pb-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+              <span className={sectionTitle}>Estado</span>
+              <span className="flex items-center gap-2">
+                <span className={`${STATUS_CHIP} ${quoteStatus(quote.status).badge}`}>
+                  {quoteStatus(quote.status).label}
+                </span>
+                <span className="text-xs font-medium text-accent underline-offset-2 group-hover:underline group-open:hidden">
+                  Corregir
+                </span>
+              </span>
+            </summary>
+            <p className="mt-3 text-xs leading-snug text-foreground/50">
+              Úsalo solo para corregir. Las fechas ya registradas no se borran.
+            </p>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {(["DRAFT", "SENT", "APPROVED", "REJECTED"] as const).map((s) => (
                 <form key={s} action={changeStatusAction}>
@@ -859,9 +1016,10 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
                   <input type="hidden" name="status" value={s} />
                   <button
                     type="submit"
+                    disabled={quote.status === s}
                     className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
                       quote.status === s
-                        ? "border-accent/60 bg-accent/20 text-accent"
+                        ? "cursor-default border-accent/60 bg-accent/20 text-accent"
                         : "border-foreground/20 text-foreground/70 hover:bg-foreground/5"
                     }`}
                   >
@@ -870,12 +1028,12 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
                 </form>
               ))}
             </div>
-          </div>
+          </details>
 
           {/* Propiedad: se puede asignar y cambiar en cualquier momento */}
           <div
             className={`rounded-2xl border p-4 ${
-              quote.propertyId ? "border-foreground/12 bg-white/50" : "border-amber-400/45 bg-amber-50"
+              quote.propertyId ? "border-foreground/12 bg-card" : "border-amber-400/45 bg-amber-50"
             }`}
           >
             <p className={sectionTitle}>Propiedad</p>
@@ -956,7 +1114,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
 
           {/* Convertir en trabajo: el puente que faltaba entre venta y operación */}
           {quote.status === "APPROVED" ? (
-            <div className="rounded-2xl border border-accent/35 bg-accent/8 p-4">
+            <div id="operacion" className="scroll-mt-28 rounded-2xl border border-accent/35 bg-accent/8 p-4">
               <p className={sectionTitle}>Operación</p>
               {existingJob ? (
                 <div className="mt-2">
@@ -1023,10 +1181,10 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
 
           {/* Pagos */}
           <div className="space-y-3">
-            <p className={`${sectionTitle} px-1`}>Pagos</p>
+            <p className={`${sectionTitle} scroll-mt-28 px-1`} id="cobro">Cobro</p>
 
             {/* Online payments toggle */}
-            <div className={`rounded-2xl border p-4 ${quote.paymentsEnabled ? "border-foreground/12 bg-white/50" : "border-amber-400/40 bg-amber-50/50"}`}>
+            <div className={`rounded-2xl border p-4 ${quote.paymentsEnabled ? "border-foreground/12 bg-card" : "border-amber-400/40 bg-amber-50/50"}`}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground/80">Pago en línea</p>
@@ -1097,7 +1255,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
           </div>
 
           {/* Detalles */}
-          <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-white/50 p-4">
+          <form action={updateQuoteAction} className="rounded-2xl border border-foreground/12 bg-card p-4">
             <input type="hidden" name="id" value={quote.id} />
             <p className={sectionTitle}>Detalles</p>
             <div className="mt-2.5 space-y-3">
