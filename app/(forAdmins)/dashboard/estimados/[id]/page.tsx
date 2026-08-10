@@ -323,6 +323,57 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
   }
 
   /**
+   * Assigns (or moves) the property this estimate is for.
+   *
+   * `Quote.propertyId` is optional and used to only be settable on the create
+   * form, so a quote created without one was stuck: the header warned that the
+   * yard size was falling back to "Mediano" and the Operación panel refused to
+   * build a job, with no control anywhere to fix either.
+   *
+   * The property must belong to this quote's customer, since the id arrives
+   * from a form field.
+   */
+  async function assignQuotePropertyAction(formData: FormData) {
+    "use server"
+    const auth = await requireAdmin("quotes:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "quote.assignProperty", entityType: "Quote", entityId: id },
+      async () => {
+        const propertyId = parseOptStr(formData.get("propertyId"))
+        if (!propertyId) throw new ActionError("datos")
+
+        const target = await prisma.quote.findUnique({
+          where: { id },
+          select: { customerId: true, archivedAt: true, publicToken: true },
+        })
+        if (!target || target.archivedAt) throw new ActionError("no_encontrado")
+
+        const owned = await prisma.property.findFirst({
+          where: { id: propertyId, customerId: target.customerId, archivedAt: null },
+          select: { id: true },
+        })
+        if (!owned) throw new ActionError("no_encontrado")
+
+        await prisma.quote.update({ where: { id }, data: { propertyId } })
+        // Line prices are not recomputed on purpose: they were quoted at a
+        // number the customer may already have seen. This only re-sums them.
+        await recalcQuoteTotals(id)
+        return target.publicToken
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
+    revalidatePath(detailPath)
+    revalidatePath(`${detailPath}/preview`)
+    revalidatePath("/dashboard/estimados")
+    // The public document shows the address, so its cache is stale now.
+    if (result.value) revalidatePath(`/quote/${result.value}`)
+  }
+
+  /**
    * Turns an approved estimate into a scheduled job.
    *
    * Until now approving a quote produced a Job only when it carried a recurring
@@ -435,8 +486,22 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
     prisma.quote.findUnique({
       where: { id },
       include: {
-        customer: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
-        property: { select: { street: true, city: true, lotSizeSqFt: true } },
+        customer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            // Needed by the property picker below.
+            properties: {
+              where: { archivedAt: null },
+              select: { id: true, label: true, street: true, city: true, lotSizeSqFt: true },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
+        property: { select: { id: true, street: true, city: true, lotSizeSqFt: true } },
         items: {
           include: {
             service: { select: { id: true, name: true, category: true } },
@@ -687,12 +752,8 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
               </a>
             ) : null}
           </div>
-          {!quote.property ? (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              Sin propiedad asignada — el tamaño del yard usa “{PLAN_TIER_LABEL[planTier]}” por defecto.
-            </p>
-          ) : null}
+          {/* El aviso detallado y el selector viven juntos en la tarjeta
+              Propiedad del sidebar, para no repetir la misma alerta dos veces. */}
           <div className="mt-3 flex flex-wrap gap-2">
             <span className={`${STATUS_CHIP} ${resolvedStatus.badge}`}>{resolvedStatus.label}</span>
             <span className={chip}>{QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}</span>
@@ -811,6 +872,88 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
             </div>
           </div>
 
+          {/* Propiedad: se puede asignar y cambiar en cualquier momento */}
+          <div
+            className={`rounded-2xl border p-4 ${
+              quote.propertyId ? "border-foreground/12 bg-white/50" : "border-amber-400/45 bg-amber-50"
+            }`}
+          >
+            <p className={sectionTitle}>Propiedad</p>
+
+            {quote.property ? (
+              <p className="mt-1.5 text-sm font-medium text-foreground/80">
+                {quote.property.street}, {quote.property.city}
+                <span className="mt-0.5 block text-[11px] font-normal text-foreground/45">
+                  {quote.property.lotSizeSqFt
+                    ? `Lote ${quote.property.lotSizeSqFt.toLocaleString("es-US")} sqft`
+                    : "Sin tamaño de lote registrado"}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-amber-900">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Sin asignar. El tamaño del yard cae en “{PLAN_TIER_LABEL[planTier]}” por defecto y no
+                se puede crear el trabajo.
+              </p>
+            )}
+
+            {quote.customer.properties.length === 0 ? (
+              <div className="mt-3">
+                <p className="text-xs text-foreground/55">
+                  {quote.customer.firstName} no tiene propiedades registradas todavía.
+                </p>
+                <Link
+                  href={`/dashboard/clientes/${quote.customer.id}/propiedades/nueva`}
+                  className="mt-2 inline-flex rounded-xl border border-foreground/20 bg-background px-3 py-2 text-sm font-semibold transition hover:border-accent/40 hover:text-accent"
+                >
+                  Crear una propiedad
+                </Link>
+              </div>
+            ) : (
+              <form action={assignQuotePropertyAction} className="mt-3 space-y-2">
+                <select
+                  name="propertyId"
+                  required
+                  defaultValue={quote.propertyId ?? ""}
+                  aria-label="Propiedad del estimado"
+                  className={ic}
+                >
+                  <option value="" disabled>
+                    Seleccionar propiedad…
+                  </option>
+                  {quote.customer.properties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label ? `${p.label} · ` : ""}
+                      {p.street}, {p.city}
+                    </option>
+                  ))}
+                </select>
+                <SubmitButton
+                  pendingLabel="Guardando…"
+                  className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                    quote.propertyId
+                      ? "border border-foreground/20 text-foreground/70 hover:bg-foreground/5"
+                      : "bg-accent text-accent-foreground hover:bg-accent/90"
+                  }`}
+                >
+                  {quote.propertyId ? "Cambiar propiedad" : "Asignar propiedad"}
+                </SubmitButton>
+                {quote.status !== "DRAFT" ? (
+                  <p className="text-[11px] leading-snug text-foreground/50">
+                    Este estimado ya salió al cliente: cambiar la propiedad también cambia la
+                    dirección que ve en el documento público.
+                  </p>
+                ) : null}
+                <Link
+                  href={`/dashboard/clientes/${quote.customer.id}/propiedades/nueva`}
+                  className="block text-[11px] text-foreground/45 underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  Registrar otra propiedad para este cliente
+                </Link>
+              </form>
+            )}
+          </div>
+
           {/* Convertir en trabajo: el puente que faltaba entre venta y operación */}
           {quote.status === "APPROVED" ? (
             <div className="rounded-2xl border border-accent/35 bg-accent/8 p-4">
@@ -833,7 +976,7 @@ export default async function EstimadoDetailPage({ params, searchParams }: Props
               ) : !quote.propertyId ? (
                 <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-800">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Asigna una propiedad al estimado para poder crear el trabajo.
+                  Asigna una propiedad en el panel de arriba para poder crear el trabajo.
                 </p>
               ) : (
                 <form action={convertQuoteToJobAction} className="mt-2.5 space-y-2.5">
