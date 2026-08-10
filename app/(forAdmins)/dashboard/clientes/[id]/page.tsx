@@ -53,6 +53,57 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 // statuses as solid dark chips while every other page painted the identical
 // status pale, so the same data looked like two different systems.
 
+/**
+ * Helpers used by the inline server actions below MUST live at module scope.
+ *
+ * An inline `"use server"` function closes over the surrounding component
+ * scope, and Next serializes those captured bindings across the server/client
+ * boundary. Functions are not serializable, so a helper declared inside the
+ * component makes the whole page throw:
+ *   "Functions cannot be passed directly to Client Components"
+ * Module-scope declarations are plain module bindings, not closure captures,
+ * so they never enter that serialization path.
+ */
+
+/** Shared parser for the property create/update forms. */
+function readPropertyFields(formData: FormData) {
+  return {
+    street: parseStr(formData.get("street")),
+    city: parseStr(formData.get("city")),
+    zipCode: parseStr(formData.get("zipCode")),
+    state: parseStr(formData.get("state")) || "NJ",
+    label: parseOptStr(formData.get("label")),
+    accessNotes: parseOptStr(formData.get("accessNotes")),
+    lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
+    flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
+    shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
+    treesCount: parseOptPositiveInt(formData.get("treesCount")),
+    turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
+    bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
+    hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
+    yardFront: formData.get("yardFront") === "on",
+    yardBack: formData.get("yardBack") === "on",
+    yardSides: formData.get("yardSides") === "on",
+    jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
+    estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
+  }
+}
+
+/**
+ * Confirms the property being mutated belongs to the customer in the URL.
+ * Without this the property id comes straight from a hidden form field, so a
+ * crafted request could edit or archive any property in the database.
+ * `customerId` is passed in rather than captured: strings serialize, the
+ * enclosing scope does not need to.
+ */
+async function assertPropertyBelongsToCustomer(propertyId: string, customerId: string) {
+  const owned = await prisma.property.findFirst({
+    where: { id: propertyId, customerId },
+    select: { id: true },
+  })
+  if (!owned) throw new ActionError("no_encontrado")
+}
+
 export default async function CustomerDetailPage({
   params,
   searchParams,
@@ -182,43 +233,6 @@ export default async function CustomerDetailPage({
     redirect(withNotice(detailPath, "restaurado"))
   }
 
-  /** Shared parser for the property create/update forms. */
-  function readPropertyFields(formData: FormData) {
-    return {
-      street: parseStr(formData.get("street")),
-      city: parseStr(formData.get("city")),
-      zipCode: parseStr(formData.get("zipCode")),
-      state: parseStr(formData.get("state")) || "NJ",
-      label: parseOptStr(formData.get("label")),
-      accessNotes: parseOptStr(formData.get("accessNotes")),
-      lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
-      flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
-      shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
-      treesCount: parseOptPositiveInt(formData.get("treesCount")),
-      turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
-      bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
-      hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
-      yardFront: formData.get("yardFront") === "on",
-      yardBack: formData.get("yardBack") === "on",
-      yardSides: formData.get("yardSides") === "on",
-      jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
-      estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
-    }
-  }
-
-  /**
-   * Confirms the property being mutated actually belongs to the customer in the
-   * URL. Without this the id comes straight from a hidden form field, so a
-   * crafted request could edit or archive any property in the database.
-   */
-  async function assertPropertyBelongsToCustomer(propertyId: string) {
-    const owned = await prisma.property.findFirst({
-      where: { id: propertyId, customerId: id },
-      select: { id: true },
-    })
-    if (!owned) throw new ActionError("no_encontrado")
-  }
-
   async function createPropertyAction(formData: FormData) {
     "use server"
     const auth = await requireAdmin("properties:write")
@@ -255,7 +269,7 @@ export default async function CustomerDetailPage({
         const pId = parseStr(formData.get("id"))
         const fields = readPropertyFields(formData)
         if (!pId || !fields.street || !fields.city || !fields.zipCode) throw new ActionError("datos")
-        await assertPropertyBelongsToCustomer(pId)
+        await assertPropertyBelongsToCustomer(pId, id)
         await prisma.property.update({ where: { id: pId }, data: fields })
       }
     )
@@ -277,7 +291,7 @@ export default async function CustomerDetailPage({
       async () => {
         const pId = parseStr(formData.get("id"))
         if (!pId || formData.get("confirmDelete") !== "on") throw new ActionError("datos")
-        await assertPropertyBelongsToCustomer(pId)
+        await assertPropertyBelongsToCustomer(pId, id)
         await prisma.property.update({ where: { id: pId }, data: { archivedAt: new Date() } })
       }
     )
@@ -305,7 +319,7 @@ export default async function CustomerDetailPage({
         if (startWeekRaw !== "THIS_WEEK" && startWeekRaw !== "NEXT_WEEK") throw new ActionError("datos")
         if (!Number.isFinite(weekday) || weekday < 1 || weekday > 7) throw new ActionError("datos")
         const propertyId = parseStr(formData.get("propertyId")) || null
-        if (propertyId) await assertPropertyBelongsToCustomer(propertyId)
+        if (propertyId) await assertPropertyBelongsToCustomer(propertyId, id)
         await assignMembershipWithSchedule(prisma, {
           customerId,
           planId,
