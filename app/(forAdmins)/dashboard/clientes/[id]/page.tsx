@@ -1,14 +1,18 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
+import { ActionBanner } from "@/components/ui/ActionBanner"
 import { EditDialog } from "@/components/ui/EditDialog"
 import { PhoneInput } from "@/components/ui/PhoneInput"
 import { PropertiesDialog } from "@/components/ui/PropertiesDialog"
 import { CustomerActionsMenu } from "@/components/ui/CustomerActionsMenu"
+import { SubmitButton } from "@/components/ui/SubmitButton"
+import { ActionError, requireAdmin, runAction, withError, withNotice } from "@/lib/admin-action"
 import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
 import { parsePhoneRequired } from "@/lib/phone-format"
 import { parseOptPositiveInt } from "@/lib/form-parse"
+import { jobStatus, quoteStatus, STATUS_CHIP } from "@/lib/status-ui"
 
 // ── helpers ────────────────────────────────────────────────────
 function parseStr(v: FormDataEntryValue | null) {
@@ -45,178 +49,278 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   MEDIUM: "text-amber-500",
   HARD: "text-rose-500",
 }
-const QUOTE_STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Borrador",
-  SENT: "Enviado",
-  APPROVED: "Aprobado",
-  REJECTED: "Rechazado",
-}
-const QUOTE_STATUS_BADGE: Record<string, string> = {
-  DRAFT: "border-zinc-500/30 bg-zinc-500/10 text-zinc-400",
-  SENT: "border-blue-500/40 bg-blue-500/10 text-blue-400",
-  APPROVED: "border-emerald-600/30 bg-emerald-50 text-emerald-700",
-  REJECTED: "border-rose-500/30 bg-rose-50 text-rose-600",
-}
-const JOB_STATUS_BADGE: Record<string, string> = {
-  SCHEDULED: "border-blue-800 bg-blue-700 text-white",
-  IN_PROGRESS: "border-amber-700 bg-amber-600 text-white",
-  COMPLETED: "border-emerald-800 bg-emerald-700 text-white",
-  CANCELLED: "border-rose-800 bg-rose-700 text-white",
-}
+// Status colors come from lib/status-ui. This page previously painted job
+// statuses as solid dark chips while every other page painted the identical
+// status pale, so the same data looked like two different systems.
 
 export default async function CustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ error?: string; ok?: string }>
 }) {
   const { id } = await params
+  const banner = (await searchParams) ?? {}
 
   // ── server actions ─────────────────────────────────────────
+  // Every action calls requireAdmin() first and redirects OUTSIDE its try/catch
+  // (redirect() throws NEXT_REDIRECT; catching it would swallow the navigation).
+  const detailPath = `/dashboard/clientes/${id}`
+
   async function updateCustomerAction(formData: FormData) {
     "use server"
-    const cId = parseStr(formData.get("id"))
-    const firstName = titleCase(parseStr(formData.get("firstName")))
-    const lastName = titleCase(parseStr(formData.get("lastName")))
-    const phone = parsePhoneRequired(formData.get("phone"))
-    if (!cId || !firstName || !phone) return
-    const rawNotes = parseOptStr(formData.get("notes"))
-    await prisma.customer.update({
-      where: { id: cId },
-      data: {
-        firstName,
-        lastName,
-        phone,
-        email: parseOptStr(formData.get("email")),
-        notes: rawNotes ? sentenceCase(rawNotes) : null,
-        difficulty: parseDifficulty(formData.get("difficulty")),
-      },
-    })
+    const auth = await requireAdmin("customers:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "customer.update", entityType: "Customer", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const cId = parseStr(formData.get("id"))
+        const firstName = titleCase(parseStr(formData.get("firstName")))
+        const lastName = titleCase(parseStr(formData.get("lastName")))
+        const phone = parsePhoneRequired(formData.get("phone"))
+        if (!cId || !firstName || !phone) throw new ActionError("datos")
+        const rawNotes = parseOptStr(formData.get("notes"))
+        await prisma.customer.update({
+          where: { id: cId },
+          data: {
+            firstName,
+            lastName,
+            phone,
+            email: parseOptStr(formData.get("email")),
+            notes: rawNotes ? sentenceCase(rawNotes) : null,
+            difficulty: parseDifficulty(formData.get("difficulty")),
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
-    revalidatePath(`/dashboard/clientes/${cId}`)
+    revalidatePath(detailPath)
   }
 
   async function toggleCustomerActiveAction(formData: FormData) {
     "use server"
-    const cId = parseStr(formData.get("id"))
-    const nextActive = formData.get("nextActive") === "true"
-    if (!cId) return
-    await prisma.customer.update({ where: { id: cId }, data: { isActive: nextActive } })
+    const auth = await requireAdmin("customers:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "customer.toggleActive", entityType: "Customer", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const cId = parseStr(formData.get("id"))
+        if (!cId) throw new ActionError("datos")
+        await prisma.customer.update({
+          where: { id: cId },
+          data: { isActive: formData.get("nextActive") === "true" },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
-    revalidatePath(`/dashboard/clientes/${cId}`)
+    revalidatePath(detailPath)
   }
 
-  async function deleteCustomerAction(formData: FormData) {
+  /**
+   * Archives instead of deleting.
+   *
+   * `prisma.customer.delete` cascades through Property -> Job and Quote ->
+   * QuoteItem, so the old version destroyed paid estimates complete with their
+   * signature and acceptance snapshot. Financial records are never removed here;
+   * the row is flagged and disappears from the default views, and Archivados can
+   * bring it back.
+   */
+  async function archiveCustomerAction(formData: FormData) {
     "use server"
-    const cId = parseStr(formData.get("id"))
-    const confirmed = formData.get("confirmDelete") === "on"
-    if (!cId || !confirmed) return
-    try {
-      await prisma.customer.delete({ where: { id: cId } })
-    } catch {
-      await prisma.customer.update({ where: { id: cId }, data: { isActive: false } })
-    }
+    const auth = await requireAdmin("archive")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "customer.archive", entityType: "Customer", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const cId = parseStr(formData.get("id"))
+        if (!cId || formData.get("confirmDelete") !== "on") throw new ActionError("datos")
+        await prisma.customer.update({
+          where: { id: cId },
+          data: { archivedAt: new Date(), isActive: false },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
+    revalidatePath(detailPath)
+    redirect(withNotice("/dashboard/clientes", "archivado"))
+  }
+
+  async function restoreCustomerAction(formData: FormData) {
+    "use server"
+    const auth = await requireAdmin("archive")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "customer.restore", entityType: "Customer", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const cId = parseStr(formData.get("id"))
+        if (!cId) throw new ActionError("datos")
+        await prisma.customer.update({
+          where: { id: cId },
+          data: { archivedAt: null, isActive: true },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
+    revalidatePath("/dashboard/clientes")
+    revalidatePath(detailPath)
+    redirect(withNotice(detailPath, "restaurado"))
+  }
+
+  /** Shared parser for the property create/update forms. */
+  function readPropertyFields(formData: FormData) {
+    return {
+      street: parseStr(formData.get("street")),
+      city: parseStr(formData.get("city")),
+      zipCode: parseStr(formData.get("zipCode")),
+      state: parseStr(formData.get("state")) || "NJ",
+      label: parseOptStr(formData.get("label")),
+      accessNotes: parseOptStr(formData.get("accessNotes")),
+      lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
+      flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
+      shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
+      treesCount: parseOptPositiveInt(formData.get("treesCount")),
+      turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
+      bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
+      hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
+      yardFront: formData.get("yardFront") === "on",
+      yardBack: formData.get("yardBack") === "on",
+      yardSides: formData.get("yardSides") === "on",
+      jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
+      estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
+    }
+  }
+
+  /**
+   * Confirms the property being mutated actually belongs to the customer in the
+   * URL. Without this the id comes straight from a hidden form field, so a
+   * crafted request could edit or archive any property in the database.
+   */
+  async function assertPropertyBelongsToCustomer(propertyId: string) {
+    const owned = await prisma.property.findFirst({
+      where: { id: propertyId, customerId: id },
+      select: { id: true },
+    })
+    if (!owned) throw new ActionError("no_encontrado")
   }
 
   async function createPropertyAction(formData: FormData) {
     "use server"
-    const customerId = parseStr(formData.get("customerId"))
-    const street = parseStr(formData.get("street"))
-    const city = parseStr(formData.get("city"))
-    const zipCode = parseStr(formData.get("zipCode"))
-    if (!customerId || !street || !city || !zipCode) return
-    await prisma.property.create({
-      data: {
-        customerId,
-        street,
-        city,
-        zipCode,
-        state: parseStr(formData.get("state")) || "NJ",
-        label: parseOptStr(formData.get("label")),
-        accessNotes: parseOptStr(formData.get("accessNotes")),
-        lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
-        flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
-        shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
-        treesCount: parseOptPositiveInt(formData.get("treesCount")),
-        turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
-        bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
-        hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
-        yardFront: formData.get("yardFront") === "on",
-        yardBack: formData.get("yardBack") === "on",
-        yardSides: formData.get("yardSides") === "on",
-        jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
-        estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
-      },
-    })
+    const auth = await requireAdmin("properties:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "property.create", entityType: "Property", entityId: null },
+      async () => {
+        const customerId = parseStr(formData.get("customerId"))
+        const fields = readPropertyFields(formData)
+        if (!customerId || !fields.street || !fields.city || !fields.zipCode) {
+          throw new ActionError("datos")
+        }
+        if (customerId !== id) throw new ActionError("no_encontrado")
+        await prisma.property.create({ data: { customerId, ...fields } })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
-    revalidatePath(`/dashboard/clientes/${id}`)
+    revalidatePath(detailPath)
   }
 
   async function updatePropertyAction(formData: FormData) {
     "use server"
-    const pId = parseStr(formData.get("id"))
-    const street = parseStr(formData.get("street"))
-    const city = parseStr(formData.get("city"))
-    const zipCode = parseStr(formData.get("zipCode"))
-    if (!pId || !street || !city || !zipCode) return
-    await prisma.property.update({
-      where: { id: pId },
-      data: {
-        street,
-        city,
-        zipCode,
-        state: parseStr(formData.get("state")) || "NJ",
-        label: parseOptStr(formData.get("label")),
-        accessNotes: parseOptStr(formData.get("accessNotes")),
-        lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
-        flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
-        shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
-        treesCount: parseOptPositiveInt(formData.get("treesCount")),
-        turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
-        bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
-        hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
-        yardFront: formData.get("yardFront") === "on",
-        yardBack: formData.get("yardBack") === "on",
-        yardSides: formData.get("yardSides") === "on",
-        jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
-        estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
-      },
-    })
+    const auth = await requireAdmin("properties:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "property.update", entityType: "Property", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const pId = parseStr(formData.get("id"))
+        const fields = readPropertyFields(formData)
+        if (!pId || !fields.street || !fields.city || !fields.zipCode) throw new ActionError("datos")
+        await assertPropertyBelongsToCustomer(pId)
+        await prisma.property.update({ where: { id: pId }, data: fields })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
-    revalidatePath(`/dashboard/clientes/${id}`)
+    revalidatePath(detailPath)
   }
 
-  async function deletePropertyAction(formData: FormData) {
+  /** Archives instead of deleting: a property cascades to its Jobs. */
+  async function archivePropertyAction(formData: FormData) {
     "use server"
-    const pId = parseStr(formData.get("id"))
-    const confirmed = formData.get("confirmDelete") === "on"
-    if (!pId || !confirmed) return
-    await prisma.property.delete({ where: { id: pId } })
+    const auth = await requireAdmin("archive")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "property.archive", entityType: "Property", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const pId = parseStr(formData.get("id"))
+        if (!pId || formData.get("confirmDelete") !== "on") throw new ActionError("datos")
+        await assertPropertyBelongsToCustomer(pId)
+        await prisma.property.update({ where: { id: pId }, data: { archivedAt: new Date() } })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
-    revalidatePath(`/dashboard/clientes/${id}`)
+    revalidatePath(detailPath)
+    redirect(withNotice(detailPath, "archivado"))
   }
 
   async function assignPlanToCustomerAction(formData: FormData) {
     "use server"
-    const customerId = parseStr(formData.get("customerId"))
-    const planId = parseStr(formData.get("planId"))
-    const startWeekRaw = parseStr(formData.get("startWeek"))
-    const weekday = parseInt(String(formData.get("preferredWeekday") ?? ""), 10)
-    if (!customerId || !planId) return
-    if (startWeekRaw !== "THIS_WEEK" && startWeekRaw !== "NEXT_WEEK") return
-    if (!Number.isFinite(weekday) || weekday < 1 || weekday > 7) return
-    const propertyId = parseStr(formData.get("propertyId")) || null
-    await assignMembershipWithSchedule(prisma, {
-      customerId,
-      planId,
-      propertyId,
-      startWeek: startWeekRaw,
-      preferredWeekday: weekday,
-      preferredTime: parseOptStr(formData.get("preferredTime")),
-      notes: parseOptStr(formData.get("notes")),
-    })
+    const auth = await requireAdmin("customers:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "membership.assign", entityType: "Customer", entityId: parseStr(formData.get("customerId")) },
+      async () => {
+        const customerId = parseStr(formData.get("customerId"))
+        const planId = parseStr(formData.get("planId"))
+        const startWeekRaw = parseStr(formData.get("startWeek"))
+        const weekday = parseInt(String(formData.get("preferredWeekday") ?? ""), 10)
+        if (!customerId || !planId) throw new ActionError("datos")
+        if (startWeekRaw !== "THIS_WEEK" && startWeekRaw !== "NEXT_WEEK") throw new ActionError("datos")
+        if (!Number.isFinite(weekday) || weekday < 1 || weekday > 7) throw new ActionError("datos")
+        const propertyId = parseStr(formData.get("propertyId")) || null
+        if (propertyId) await assertPropertyBelongsToCustomer(propertyId)
+        await assignMembershipWithSchedule(prisma, {
+          customerId,
+          planId,
+          propertyId,
+          startWeek: startWeekRaw,
+          preferredWeekday: weekday,
+          preferredTime: parseOptStr(formData.get("preferredTime")),
+          notes: parseOptStr(formData.get("notes")),
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/clientes")
-    revalidatePath(`/dashboard/clientes/${customerId}`)
+    revalidatePath(detailPath)
     revalidatePath("/dashboard/servicios")
     revalidatePath("/dashboard/scheduling")
   }
@@ -237,7 +341,7 @@ export default async function CustomerDetailPage({
       },
     }),
     prisma.quote.findMany({
-      where: { customerId: id },
+      where: { customerId: id, archivedAt: null },
       include: {
         property: { select: { street: true, city: true } },
         items: { include: { service: { select: { name: true } } } },
@@ -283,7 +387,7 @@ export default async function CustomerDetailPage({
   const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
   return (
-    <section className="mx-auto max-w-5xl text-foreground">
+    <section className="text-foreground">
       {/* Breadcrumb */}
       <Link
         href="/dashboard/clientes"
@@ -291,6 +395,25 @@ export default async function CustomerDetailPage({
       >
         ← Clientes
       </Link>
+
+      <ActionBanner error={banner.error} notice={banner.ok} />
+
+      {customer.archivedAt ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/45 bg-amber-50 px-4 py-3">
+          <p className="text-sm font-medium text-amber-900">
+            Este cliente está archivado. Sus estimados y trabajos siguen intactos.
+          </p>
+          <form action={restoreCustomerAction}>
+            <input type="hidden" name="id" value={customer.id} />
+            <SubmitButton
+              pendingLabel="Restaurando…"
+              className="rounded-lg border border-amber-600/40 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-200"
+            >
+              Restaurar cliente
+            </SubmitButton>
+          </form>
+        </div>
+      ) : null}
 
       {/* Header */}
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
@@ -377,8 +500,10 @@ export default async function CustomerDetailPage({
           <CustomerActionsMenu
             customerId={customer.id}
             isActive={customer.isActive}
+            isArchived={Boolean(customer.archivedAt)}
             toggleCustomerActiveAction={toggleCustomerActiveAction}
-            deleteCustomerAction={deleteCustomerAction}
+            archiveCustomerAction={archiveCustomerAction}
+            restoreCustomerAction={restoreCustomerAction}
           />
         </div>
       </div>
@@ -429,7 +554,7 @@ export default async function CustomerDetailPage({
               customerId={customer.id}
               properties={customer.properties}
               updatePropertyAction={updatePropertyAction}
-              deletePropertyAction={deletePropertyAction}
+              deletePropertyAction={archivePropertyAction}
               createPropertyAction={createPropertyAction}
               allowCreate={false}
             />
@@ -687,9 +812,9 @@ export default async function CustomerDetailPage({
                       </td>
                       <td className="px-4 py-2.5">
                         <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${QUOTE_STATUS_BADGE[q.status] ?? ""}`}
+                          className={`${STATUS_CHIP} ${quoteStatus(q.status).badge}`}
                         >
-                          {QUOTE_STATUS_LABEL[q.status] ?? q.status}
+                          {quoteStatus(q.status).label}
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
@@ -770,10 +895,8 @@ export default async function CustomerDetailPage({
                           {crew}
                         </td>
                         <td className="px-4 py-2.5">
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${JOB_STATUS_BADGE[job.status] ?? ""}`}
-                          >
-                            {job.status.replace("_", " ")}
+                          <span className={`${STATUS_CHIP} ${jobStatus(job.status).badge}`}>
+                            {jobStatus(job.status).label}
                           </span>
                         </td>
                       </tr>

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 
+import { JOB_STATUS, jobStatus, STATUS_CHIP as CHIP_CLASSES } from "@/lib/status-ui"
+
 type TimelineJob = {
   id: string
   title: string
@@ -25,23 +27,13 @@ const DIFFICULTY_STYLE: Record<string, string> = {
   MEDIUM: "border-amber-400/40 bg-amber-50 text-amber-800",
   HARD: "border-rose-400/40 bg-rose-50 text-rose-600",
 }
+// Status labels and colors come from lib/status-ui. This file used to carry two
+// separate maps (STATUS_CHIP solid, STATUS_BADGE pale) for the same four values.
 const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "Programado",
-  IN_PROGRESS: "En curso",
-  COMPLETED: "Completado",
-  CANCELLED: "Cancelado",
-}
-const STATUS_CHIP: Record<string, string> = {
-  SCHEDULED: "border-blue-800 bg-blue-700 text-white",
-  IN_PROGRESS: "border-amber-700 bg-amber-600 text-white",
-  COMPLETED: "border-emerald-800 bg-emerald-700 text-white",
-  CANCELLED: "border-rose-800 bg-rose-700 text-white",
-}
-const STATUS_BADGE: Record<string, string> = {
-  SCHEDULED: "border-blue-400/40 bg-blue-50 text-blue-700",
-  IN_PROGRESS: "border-amber-400/40 bg-amber-50 text-amber-800",
-  COMPLETED: "border-emerald-500/35 bg-emerald-50 text-emerald-700",
-  CANCELLED: "border-rose-400/40 bg-rose-50 text-rose-600",
+  SCHEDULED: JOB_STATUS.SCHEDULED.label,
+  IN_PROGRESS: JOB_STATUS.IN_PROGRESS.label,
+  COMPLETED: JOB_STATUS.COMPLETED.label,
+  CANCELLED: JOB_STATUS.CANCELLED.label,
 }
 
 const STATUS_OPTIONS = ["ALL", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const
@@ -107,7 +99,7 @@ function JobDetailPanel({
       </div>
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/40">Estado</p>
-        <span className={`mt-0.5 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_BADGE[job.status] ?? ""}`}>
+        <span className={`mt-0.5 ${CHIP_CLASSES} ${jobStatus(job.status).badge}`}>
           {STATUS_LABEL[job.status] ?? job.status}
         </span>
       </div>
@@ -401,14 +393,12 @@ export function SchedulingTimeline({
                           <button
                             type="button"
                             onClick={() => setSelectedJobId(job.id)}
-                            className={`w-full rounded-xl border px-3.5 py-3 text-left transition hover:bg-foreground/5 ${
-                              STATUS_CHIP[job.status] ? "border-foreground/12 bg-background" : "border-foreground/12 bg-background"
-                            }`}
+                            className="w-full rounded-xl border border-foreground/12 bg-card px-3.5 py-3 text-left transition hover:bg-foreground/5"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <p className="font-semibold leading-snug text-sm">{job.title}</p>
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${STATUS_BADGE[job.status] ?? ""}`}>
-                                {STATUS_LABEL[job.status] ?? job.status}
+                              <span className={`shrink-0 ${CHIP_CLASSES} ${jobStatus(job.status).badge}`}>
+                                {jobStatus(job.status).label}
                               </span>
                             </div>
                             <p className="mt-1 text-xs text-foreground/55">{job.customerName}</p>
@@ -478,7 +468,9 @@ export function SchedulingTimeline({
                     {dayJobs.map((job) => {
                       const minutes = job.when.getHours() * 60 + job.when.getMinutes()
                       const top = ((minutes - START_HOUR * 60) / 60) * HOUR_HEIGHT
-                      const chip = STATUS_CHIP[job.status] ?? "border-zinc-600 bg-zinc-700 text-white"
+                      // Solid variant: these blocks sit on the timeline grid,
+                      // where the pale badge would not read.
+                      const chip = jobStatus(job.status).solid
                       return (
                         <button key={job.id} type="button" onClick={() => setSelectedJobId(job.id)}
                           className={`absolute left-1 right-1 overflow-hidden rounded-lg border px-2 py-1 text-left ${chip} ${selectedJobId === job.id ? "ring-2 ring-accent/70" : ""}`}

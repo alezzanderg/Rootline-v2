@@ -12,14 +12,14 @@ export default async function ConfiguracionPage() {
 
   if (!user) {
     return (
-      <section className="mx-auto max-w-3xl text-foreground">
+      <section className="admin-page--narrow text-foreground">
         <p className="text-foreground/55">No hay sesión activa.</p>
       </section>
     )
   }
 
   return (
-    <section className="mx-auto max-w-3xl text-foreground">
+    <section className="admin-page--narrow text-foreground">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Configuración</h1>

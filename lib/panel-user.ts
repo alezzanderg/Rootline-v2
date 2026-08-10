@@ -2,12 +2,22 @@ import bcrypt from "bcryptjs"
 
 import { createAdminInviteToken } from "@/lib/admin-invite"
 import { prisma } from "@/lib/prisma"
+import type { Role } from "@/lib/generated/prisma/enums"
 
-/** Panel login user (User model) — separate from field Employee records. */
+/**
+ * Panel login user (User model) — separate from field Employee records.
+ *
+ * `role` is copied onto the User because authorization reads it from the session
+ * user. Joining Employee by email at check time would make every permission
+ * decision depend on two rows staying in sync by string match; copying it here
+ * keeps the check to one row and one lookup.
+ */
 export async function upsertPanelUserForEmployee(params: {
   email: string
   firstName: string
   lastName: string
+  /** Employee.role. Omit to leave an existing user's role untouched. */
+  role?: Role
   /** Set password (min 8). Omit to leave unchanged. Pass null to clear for /auth setup. */
   password?: string | null
 }) {
@@ -27,19 +37,21 @@ export async function upsertPanelUserForEmployee(params: {
     firstName: params.firstName,
     lastName: params.lastName,
     isActive: true,
+    ...(params.role ? { role: params.role } : {}),
   }
 
   if (passwordHash !== undefined) {
     return prisma.user.upsert({
       where: { email },
-      create: { email, ...base, passwordHash },
+      // A brand-new panel user defaults to the least privilege, not the most.
+      create: { email, ...base, passwordHash, role: params.role ?? "TECHNICIAN" },
       update: { ...base, passwordHash },
     })
   }
 
   return prisma.user.upsert({
     where: { email },
-    create: { email, ...base, passwordHash: null },
+    create: { email, ...base, passwordHash: null, role: params.role ?? "TECHNICIAN" },
     update: base,
   })
 }

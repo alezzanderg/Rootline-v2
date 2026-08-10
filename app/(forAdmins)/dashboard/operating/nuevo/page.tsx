@@ -13,6 +13,8 @@ export default async function NuevoMovimientoPage({ searchParams }: Props) {
   const [partners, quotes, jobs] = await Promise.all([
     prisma.partner.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.quote.findMany({
+      // New links should only offer live quotes.
+      where: { archivedAt: null },
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { customer: { select: { firstName: true, lastName: true } } },
@@ -39,7 +41,7 @@ export default async function NuevoMovimientoPage({ searchParams }: Props) {
   ]
 
   return (
-    <section className="mx-auto max-w-3xl text-foreground">
+    <section className="admin-page--narrow text-foreground">
       <div className="mb-5">
         <Link href="/dashboard/operating" className="text-sm text-foreground/55 transition hover:text-foreground">
           ← Volver a Operating

@@ -56,7 +56,7 @@ export default async function HerramientasPage() {
   }
 
   return (
-    <section className="mx-auto max-w-6xl text-foreground">
+    <section className="text-foreground">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>

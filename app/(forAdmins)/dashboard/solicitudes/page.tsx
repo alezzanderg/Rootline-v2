@@ -65,7 +65,7 @@ export default async function SolicitudesPage({ searchParams }: Props) {
   const filterQuery = filter === "inbox" ? "" : filter === "all" ? "filter=all&" : "filter=archived&"
 
   return (
-    <section className="mx-auto max-w-6xl text-foreground">
+    <section className="text-foreground">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Bandeja</p>
@@ -222,7 +222,7 @@ export default async function SolicitudesPage({ searchParams }: Props) {
                     <summary className="cursor-pointer list-none rounded-lg border border-foreground/15 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">
                       Eliminar
                     </summary>
-                    <form action={deleteServiceInquiryAction} className="absolute right-0 z-10 mt-1 w-52 rounded-xl border border-foreground/12 bg-[#fdfcf8] p-3 shadow-lg">
+                    <form action={deleteServiceInquiryAction} className="absolute right-0 z-10 mt-1 w-52 rounded-xl border border-foreground/12 bg-admin-popover p-3 shadow-lg">
                       <input type="hidden" name="id" value={active.id} />
                       <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground/55">
                         <input type="checkbox" name="confirmDelete" />

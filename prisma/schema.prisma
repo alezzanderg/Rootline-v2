@@ -173,12 +173,41 @@ model User {
   passwordHash String?
   firstName    String?
   lastName     String?
+  /**
+   * Panel permission level. Kept on User (not joined from Employee by email) so
+   * authorization never depends on a fragile email match. Existing rows default
+   * to ADMIN because that is what every panel user effectively was before roles
+   * were enforced. Synced from Employee.role by upsertPanelUserForEmployee.
+   */
+  role         Role     @default(ADMIN)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   customer Customer?
   emailSignature EmailSignature?
+  auditLogs AdminAuditLog[]
+}
+
+/**
+ * Append-only trail of admin mutations. Records WHO did WHAT to WHICH record.
+ * Never stores payloads (no phone numbers, no amounts) so the log itself is not
+ * a new place customer data can leak from.
+ */
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorEmail String
+  action     String
+  entityType String
+  entityId   String?
+  outcome    String   @default("ok")
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([entityType, entityId])
 }
 
 model Customer {
@@ -193,6 +222,8 @@ model Customer {
   notes            String?
   difficulty       DifficultyLevel?
   isActive         Boolean  @default(true)
+  /** Soft delete. Records are never hard-deleted; archived rows stay queryable. */
+  archivedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -200,6 +231,8 @@ model Customer {
   quotes     Quote[]
   memberships CustomerMembership[]
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([archivedAt])
 }
 
 model Property {
@@ -223,6 +256,8 @@ model Property {
   yardSides            Boolean          @default(false)
   jobDifficulty        DifficultyLevel?
   estimatedDurationMin Int?
+  /** Soft delete. Records are never hard-deleted; archived rows stay queryable. */
+  archivedAt           DateTime?
   createdAt            DateTime         @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -230,6 +265,8 @@ model Property {
   jobs        Job[]
   quotes      Quote[]
   memberships CustomerMembership[]
+
+  @@index([archivedAt])
 }
 
 model ServiceCatalog {
@@ -263,11 +300,15 @@ model ServiceCatalog {
   displayOrder     Int      @default(0)
   estimatedMinutes Int?
   active           Boolean  @default(true)
+  /** Soft delete. QuoteItem/JobItem reference this with onDelete: Restrict. */
+  archivedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   quoteItems QuoteItem[]
   jobItems   JobItem[]
+
+  @@index([archivedAt])
 }
 
 model MembershipPlan {
@@ -347,6 +388,8 @@ model Quote {
   collectFirstCycleNow Boolean   @default(false)
   /** Immutable snapshot of selected items/options/totals captured at acceptance */
   acceptanceSnapshot   Json?
+  /** Soft delete. Quotes are financial records and are never hard-deleted. */
+  archivedAt           DateTime?
   /** Stripe Checkout — card payments without Mercury AR subscription */
   stripeCheckoutSessionId String? @unique
   stripeCheckoutUrl       String?
@@ -417,6 +460,7 @@ model QuoteItem {
   optionGroup QuoteOptionGroup? @relation(fields: [optionGroupId], references: [id], onDelete: SetNull)
 
   @@index([optionGroupId])
+  @@index([planId])
 }
 
 model Employee {
@@ -445,6 +489,8 @@ model Job {
   scheduledAt DateTime
   startedAt   DateTime?
   completedAt DateTime?
+  cancelledAt DateTime?
+  cancelReason String?
   notes       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -454,6 +500,9 @@ model Job {
   assignments JobAssignment[]
   items       JobItem[]
   operatingExpenses OperatingTransaction[]
+
+  @@index([status, scheduledAt])
+  @@index([quoteId])
 }
 
 model JobAssignment {

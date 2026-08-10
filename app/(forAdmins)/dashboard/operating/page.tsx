@@ -37,6 +37,9 @@ export default async function OperatingPage({ searchParams }: Props) {
       },
     }),
     prisma.quote.findMany({
+      // Deliberately NOT filtered by archivedAt: money that came in stays in the
+      // books. Archiving hides a quote from working lists, it does not undo
+      // revenue that was already collected.
       where: { paidAt: { not: null } },
       orderBy: { paidAt: "desc" },
       select: {
@@ -182,7 +185,7 @@ export default async function OperatingPage({ searchParams }: Props) {
   )
 
   return (
-    <section className="mx-auto max-w-6xl text-foreground">
+    <section className="text-foreground">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>

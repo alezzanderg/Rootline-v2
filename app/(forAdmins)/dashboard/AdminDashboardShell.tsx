@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Bell,
   BriefcaseBusiness,
@@ -16,6 +16,7 @@ import {
   Mail,
   Menu,
   Package,
+  PanelLeft,
   Settings,
   Users,
   Wrench,
@@ -24,6 +25,7 @@ import {
 
 const ADMIN_LOGO_SRC = "/logoFooter.png"
 const ADMIN_COLLAPSED_LOGO_SRC = "/logo.png"
+const SIDEBAR_STORAGE_KEY = "rootline.admin.sidebar"
 
 type RecentInquiry = {
   id: string
@@ -54,13 +56,33 @@ function timeAgo(iso: string): string {
   return `hace ${days}d`
 }
 
-function InquiryBadge({ count, className = "" }: { count: number; className?: string }) {
+/**
+ * `decorative` hides the badge from assistive tech when a nearby element already
+ * announces the count (the bell button carries it in its aria-label). In the
+ * sidebar nav there is no such label, so the badge is the only signal that new
+ * inquiries exist and it must be announced — it used to be `aria-hidden`
+ * unconditionally, leaving screen reader users with a plain "Solicitudes" link.
+ */
+function InquiryBadge({
+  count,
+  className = "",
+  decorative = false,
+}: {
+  count: number
+  className?: string
+  decorative?: boolean
+}) {
   if (count <= 0) return null
   const label = count > 99 ? "99+" : String(count)
   return (
     <span
-      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#c45c3e] px-1 text-[10px] font-bold leading-none text-white ${className}`}
-      aria-hidden
+      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-white ${className}`}
+      {...(decorative
+        ? { "aria-hidden": true }
+        : {
+            role: "status",
+            "aria-label": `${count} solicitud${count === 1 ? "" : "es"} nueva${count === 1 ? "" : "s"}`,
+          })}
     >
       {label}
     </span>
@@ -79,6 +101,27 @@ export default function AdminDashboardShell({
   const pathname = usePathname()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Restore the collapsed choice. Server actions redirect, which is a full
+  // document load, so without this the sidebar silently re-expanded every time
+  // the user saved anything.
+  useEffect(() => {
+    if (window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "collapsed") {
+      setIsSidebarCollapsed(true)
+    }
+  }, [])
+
+  function toggleSidebar() {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? "collapsed" : "expanded")
+      } catch {
+        // Private browsing or a full quota: the toggle still works this session.
+      }
+      return next
+    })
+  }
   const collapsedSidebarWidth = "lg:left-20"
   const expandedSidebarWidth = "lg:left-80"
   const navItems = [
@@ -105,7 +148,7 @@ export default function AdminDashboardShell({
     <div className="min-h-screen bg-background text-foreground">
       <header
         data-admin-chrome
-        className={`fixed top-0 right-0 left-0 z-30 border-b border-white/10 bg-[#151515] transition-[left] duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 left-0 z-30 border-b border-white/10 bg-admin-surface transition-[left] duration-300 ease-in-out ${
           isSidebarCollapsed ? collapsedSidebarWidth : expandedSidebarWidth
         }`}
       >
@@ -114,19 +157,20 @@ export default function AdminDashboardShell({
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="inline-flex rounded-md border border-white/15 p-2 text-[#E7E2D6]/90 transition hover:bg-[#262626] lg:hidden"
+              className="inline-flex rounded-md border border-white/15 p-2 text-[#E7E2D6]/90 transition hover:bg-admin-surface-hover lg:hidden"
               aria-label="Open navigation menu"
             >
               <Menu className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-              className="hidden rounded-md border border-white/15 px-2 py-1 text-xs font-semibold text-[#E7E2D6]/90 transition hover:bg-[#262626] lg:inline-flex"
-              aria-label={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
-              title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+              onClick={toggleSidebar}
+              className="hidden rounded-md border border-white/15 p-2 text-[#E7E2D6]/90 transition hover:bg-admin-surface-hover lg:inline-flex"
+              aria-label={isSidebarCollapsed ? "Mostrar menú lateral" : "Ocultar menú lateral"}
+              aria-pressed={isSidebarCollapsed}
+              title={isSidebarCollapsed ? "Mostrar menú" : "Ocultar menú"}
             >
-              {isSidebarCollapsed ? "Show menu" : "Hide menu"}
+              <PanelLeft className="h-4 w-4" />
             </button>
             <div>
               <p className="text-sm font-semibold tracking-wider text-[#E7E2D6] uppercase">
@@ -139,7 +183,7 @@ export default function AdminDashboardShell({
           <div className="flex items-center gap-2 sm:gap-3">
             <details className="relative">
               <summary
-                className="relative flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border border-white/15 text-[#E7E2D6]/90 transition hover:bg-[#262626]"
+                className="relative flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border border-white/15 text-[#E7E2D6]/90 transition hover:bg-admin-surface-hover"
                 aria-label={
                   newInquiryCount > 0
                     ? `${newInquiryCount} nueva${newInquiryCount === 1 ? "" : "s"} solicitud${newInquiryCount === 1 ? "" : "es"}`
@@ -149,15 +193,16 @@ export default function AdminDashboardShell({
                 <Bell className={`h-4 w-4 ${newInquiryCount > 0 ? "text-[#E7E2D6]" : ""}`} />
                 <InquiryBadge
                   count={newInquiryCount}
-                  className="absolute -top-1 -right-1 ring-2 ring-[#151515]"
+                  decorative
+                  className="absolute -top-1 -right-1 ring-2 ring-admin-surface"
                 />
               </summary>
 
-              <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-white/10 bg-[#151515] shadow-xl">
+              <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-white/10 bg-admin-surface shadow-xl">
                 <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                   <p className="text-sm font-semibold text-[#E7E2D6]">Solicitudes nuevas</p>
                   {newInquiryCount > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#c45c3e] px-1.5 text-[10px] font-bold text-white">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-white">
                       {newInquiryCount > 99 ? "99+" : newInquiryCount}
                     </span>
                   )}
@@ -173,7 +218,7 @@ export default function AdminDashboardShell({
                       <li key={inq.id}>
                         <Link
                           href="/dashboard/solicitudes"
-                          className="block px-4 py-3 transition hover:bg-[#262626]"
+                          className="block px-4 py-3 transition hover:bg-admin-surface-hover"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium leading-snug text-[#E7E2D6]">
@@ -202,25 +247,25 @@ export default function AdminDashboardShell({
             </details>
 
             <details className="relative">
-            <summary className="flex cursor-pointer list-none items-center gap-3 rounded-md px-2 py-1.5 transition hover:bg-[#262626]">
+            <summary className="flex cursor-pointer list-none items-center gap-3 rounded-md px-2 py-1.5 transition hover:bg-admin-surface-hover">
               <span className="hidden text-sm text-[#E7E2D6]/80 sm:block">{displayName}</span>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#6C8C4A]/60 bg-[#1f1f1f] text-sm font-semibold text-[#E7E2D6]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#6C8C4A]/60 bg-admin-surface-raised text-sm font-semibold text-[#E7E2D6]">
                 {initials}
               </span>
             </summary>
 
-            <div className="absolute right-0 mt-2 w-52 rounded-lg border border-white/10 bg-[#151515] p-2 shadow-xl">
+            <div className="absolute right-0 mt-2 w-52 rounded-lg border border-white/10 bg-admin-surface p-2 shadow-xl">
               <p className="px-2 py-1 text-xs text-[#E7E2D6]/60">{email}</p>
               <Link
                 href="/"
-                className="block rounded-md px-2 py-2 text-sm text-[#E7E2D6]/85 transition hover:bg-[#262626]"
+                className="block rounded-md px-2 py-2 text-sm text-[#E7E2D6]/85 transition hover:bg-admin-surface-hover"
               >
                 Back to website
               </Link>
               <form action={signOutAction}>
                 <button
                   type="submit"
-                  className="mt-1 block w-full rounded-md px-2 py-2 text-left text-sm text-[#E7E2D6]/85 transition hover:bg-[#262626]"
+                  className="mt-1 block w-full rounded-md px-2 py-2 text-left text-sm text-[#E7E2D6]/85 transition hover:bg-admin-surface-hover"
                 >
                   Sign out
                 </button>
@@ -239,7 +284,7 @@ export default function AdminDashboardShell({
             aria-label="Close navigation menu"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <aside className="relative h-full w-[86%] max-w-xs overflow-y-auto border-r border-white/10 bg-[#151515] p-4">
+          <aside className="relative h-full w-[86%] max-w-xs overflow-y-auto border-r border-white/10 bg-admin-surface p-4">
             <div className="mb-5 flex items-center justify-between">
               <p className="text-sm font-semibold tracking-wider text-[#E7E2D6] uppercase">Menu</p>
               <button
@@ -262,8 +307,8 @@ export default function AdminDashboardShell({
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
                       isActive
-                        ? "bg-[#1f1f1f] text-[#E7E2D6]"
-                        : "text-[#E7E2D6]/85 hover:bg-[#262626]"
+                        ? "bg-admin-surface-raised text-[#E7E2D6]"
+                        : "text-[#E7E2D6]/85 hover:bg-admin-surface-hover"
                     }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -284,7 +329,7 @@ export default function AdminDashboardShell({
       <div className="flex">
         <aside
           data-admin-chrome
-          className={`fixed top-0 left-0 z-40 hidden h-screen shrink-0 overflow-hidden border-r border-white/10 bg-[#151515] transition-[width] duration-300 ease-in-out lg:block ${
+          className={`fixed top-0 left-0 z-40 hidden h-screen shrink-0 overflow-hidden border-r border-white/10 bg-admin-surface transition-[width] duration-300 ease-in-out lg:block ${
             isSidebarCollapsed ? "w-20" : "w-80"
           }`}
         >
@@ -327,8 +372,8 @@ export default function AdminDashboardShell({
                     href={item.href}
                     className={`group flex items-center rounded-md py-2 text-sm font-medium transition-all duration-300 ${
                       isActive
-                        ? "bg-[#1f1f1f] text-[#E7E2D6]"
-                        : "text-[#E7E2D6]/85 hover:bg-[#262626]"
+                        ? "bg-admin-surface-raised text-[#E7E2D6]"
+                        : "text-[#E7E2D6]/85 hover:bg-admin-surface-hover"
                     } ${isSidebarCollapsed ? "justify-center px-2" : "gap-3 px-3"}`}
                     title={isSidebarCollapsed ? item.label : undefined}
                   >
@@ -365,7 +410,11 @@ export default function AdminDashboardShell({
             isSidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
           }`}
         >
-          {children}
+          {/* One measure for the whole panel. Pages used to set their own
+              container, nine different values between 896px and 1440px, so the
+              content jumped sideways on every navigation. Single-object forms
+              opt into a narrower measure with `admin-page--narrow`. */}
+          <div className="admin-page mx-auto w-full">{children}</div>
         </main>
       </div>
     </div>

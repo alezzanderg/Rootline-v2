@@ -5,7 +5,7 @@ import { createToolAction } from "@/lib/tools-actions"
 
 export default function NuevaHerramientaPage() {
   return (
-    <section className="mx-auto max-w-3xl text-foreground">
+    <section className="admin-page--narrow text-foreground">
       <div className="mb-5">
         <Link href="/dashboard/herramientas" className="text-sm text-foreground/55 transition hover:text-foreground">
           ← Volver a herramientas

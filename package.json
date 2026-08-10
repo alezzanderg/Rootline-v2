@@ -13,7 +13,9 @@
     "favicons": "tsx scripts/generate-favicons.ts",
     "optimize-images": "tsx scripts/optimize-marketing-images.ts",
     "reset-admin-password": "tsx scripts/reset-admin-password.ts",
-    "admin-invite": "tsx scripts/generate-admin-invite.ts"
+    "admin-invite": "tsx scripts/generate-admin-invite.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.15",
@@ -51,7 +53,8 @@
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

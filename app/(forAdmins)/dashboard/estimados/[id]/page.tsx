@@ -10,7 +10,17 @@ import { MercuryInvoicePanel } from "@/components/quotes/MercuryInvoicePanel"
 import { ManualPaymentPanel } from "@/components/quotes/ManualPaymentPanel"
 import { StripeCheckoutPanel } from "@/components/quotes/StripeCheckoutPanel"
 import { QuotePublicLinkPanel } from "@/components/quotes/QuotePublicLinkPanel"
+import { ActionBanner } from "@/components/ui/ActionBanner"
+import { SubmitButton } from "@/components/ui/SubmitButton"
+import {
+  ActionError,
+  requireAdmin,
+  runAction,
+  withError,
+  withNotice,
+} from "@/lib/admin-action"
 import { requireAdminUser } from "@/lib/admin-session"
+import { convertQuoteToJob } from "@/lib/job-lifecycle"
 import { getTaxRatePercent, recalcQuoteTotals } from "@/lib/app-settings"
 import { getMercuryPayUrl, hasValidMercuryTokenFormat, isMercuryConfigured } from "@/lib/mercury/config"
 import { isStripeConfigured, getStripeMode, getStripeModeLabel } from "@/lib/stripe/config"
@@ -20,10 +30,12 @@ import { createOptionGroupAction, deleteOptionGroupAction } from "@/lib/quote-op
 import { prisma } from "@/lib/prisma"
 import { serviceCatalogPricingProps } from "@/lib/servicios-catalog-form"
 import { QUOTE_FREQUENCY_LABEL, SERVICE_CATEGORY_LABEL } from "@/lib/quote-labels"
+import { jobStatus, quoteStatus, quoteStatusResolved, STATUS_CHIP } from "@/lib/status-ui"
 import { inferPlanTierFromLotSqFt, PLAN_TIER_LABEL, type PlanTier } from "@/lib/service-pricing"
 
 type Props = {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ error?: string; ok?: string }>
 }
 
 function parseStr(v: FormDataEntryValue | null): string {
@@ -42,8 +54,10 @@ function parseOptFloat(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export default async function EstimadoDetailPage({ params }: Props) {
+export default async function EstimadoDetailPage({ params, searchParams }: Props) {
   const { id } = await params
+  const banner = (await searchParams) ?? {}
+  const detailPath = `/dashboard/estimados/${id}`
 
   async function updateQuoteAction(formData: FormData) {
     "use server"
@@ -255,43 +269,121 @@ export default async function EstimadoDetailPage({ params }: Props) {
     revalidatePath("/dashboard/estimados")
   }
 
+  /**
+   * Records a status change WITHOUT erasing the other timestamps.
+   *
+   * The previous version wrote `sentAt: status === "SENT" ? now : null` for all
+   * three date columns, so approving a quote that had already been sent set
+   * `sentAt` back to null and the activity timeline permanently lost the "sent"
+   * event. These columns are an event log, not mutually exclusive state: each is
+   * stamped the first time it happens and then left alone.
+   */
   async function changeStatusAction(formData: FormData) {
     "use server"
-    if (!(await requireAdminUser())) return
-    const quoteId = parseStr(formData.get("quoteId"))
-    const status = parseStr(formData.get("status"))
-    if (!quoteId || !["SENT", "APPROVED", "REJECTED", "DRAFT"].includes(status)) return
+    const auth = await requireAdmin("quotes:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
 
-    const now = new Date()
-    await prisma.quote.update({
-      where: { id: quoteId },
-      data: {
-        status: status as "DRAFT" | "SENT" | "APPROVED" | "REJECTED",
-        sentAt: status === "SENT" ? now : null,
-        approvedAt: status === "APPROVED" ? now : null,
-        rejectedAt: status === "REJECTED" ? now : null,
-      },
-    })
-    if (status === "APPROVED") {
-      await assignMembershipFromQuoteIfNeeded(prisma, quoteId)
-    }
-    revalidatePath(`/dashboard/estimados/${quoteId}`)
+    const status = parseStr(formData.get("status"))
+    const result = await runAction(
+      auth.user,
+      { action: `quote.status.${status || "unknown"}`, entityType: "Quote", entityId: parseStr(formData.get("quoteId")) },
+      async () => {
+        const quoteId = parseStr(formData.get("quoteId"))
+        if (!quoteId || !["SENT", "APPROVED", "REJECTED", "DRAFT"].includes(status)) {
+          throw new ActionError("datos")
+        }
+
+        const current = await prisma.quote.findUnique({
+          where: { id: quoteId },
+          select: { sentAt: true, approvedAt: true, rejectedAt: true },
+        })
+        if (!current) throw new ActionError("no_encontrado")
+
+        const now = new Date()
+        await prisma.quote.update({
+          where: { id: quoteId },
+          data: {
+            status: status as "DRAFT" | "SENT" | "APPROVED" | "REJECTED",
+            // Stamp on first occurrence; never clear what already happened.
+            sentAt: status === "SENT" ? (current.sentAt ?? now) : current.sentAt,
+            approvedAt: status === "APPROVED" ? (current.approvedAt ?? now) : current.approvedAt,
+            rejectedAt: status === "REJECTED" ? (current.rejectedAt ?? now) : current.rejectedAt,
+          },
+        })
+        if (status === "APPROVED") {
+          await assignMembershipFromQuoteIfNeeded(prisma, quoteId)
+        }
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
+    revalidatePath(detailPath)
     revalidatePath("/dashboard/estimados")
     if (status === "APPROVED") revalidatePath("/dashboard/scheduling")
   }
 
-  async function deleteQuoteAction(formData: FormData) {
+  /**
+   * Turns an approved estimate into a scheduled job.
+   *
+   * Until now approving a quote produced a Job only when it carried a recurring
+   * plan line. A one-time estimate, however large, ended at "approved" and the
+   * admin had to re-pick the customer and the quote from two unlinked selects in
+   * Scheduling. Idempotent: a second submit lands on the job that already exists.
+   */
+  async function convertQuoteToJobAction(formData: FormData) {
     "use server"
-    if (!(await requireAdminUser())) return
-    const quoteId = parseStr(formData.get("id"))
-    const confirm = formData.get("confirmDelete") === "on"
-    if (!quoteId || !confirm) return
-    // Never hard-delete a paid quote — it is a financial record.
-    const existing = await prisma.quote.findUnique({ where: { id: quoteId }, select: { paidAt: true } })
-    if (existing?.paidAt) return
-    await prisma.quote.delete({ where: { id: quoteId } })
+    const auth = await requireAdmin("scheduling:write")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "quote.convertToJob", entityType: "Quote", entityId: parseStr(formData.get("quoteId")) },
+      async () => {
+        const quoteId = parseStr(formData.get("quoteId"))
+        if (!quoteId) throw new ActionError("datos")
+        const scheduledAtRaw = parseStr(formData.get("scheduledAt"))
+        if (!scheduledAtRaw) throw new ActionError("datos")
+        const employeeId = parseOptStr(formData.get("employeeId"))
+        return convertQuoteToJob(quoteId, {
+          scheduledAt: new Date(scheduledAtRaw),
+          title: parseOptStr(formData.get("title")),
+          employeeIds: employeeId ? [employeeId] : [],
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
+    revalidatePath(detailPath)
+    revalidatePath("/dashboard/scheduling")
+    revalidatePath("/dashboard")
+    redirect(
+      withNotice("/dashboard/scheduling", result.value.created ? "trabajo_creado" : "trabajo_existente")
+    )
+  }
+
+  /**
+   * Archives instead of deleting. A quote is a financial record: the old version
+   * hard-deleted it (cascading to QuoteItem and QuoteOptionGroup) whenever it was
+   * unpaid, discarding the signature and acceptance snapshot with it.
+   */
+  async function archiveQuoteAction(formData: FormData) {
+    "use server"
+    const auth = await requireAdmin("archive")
+    if (!auth.ok) redirect(withError(detailPath, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "quote.archive", entityType: "Quote", entityId: parseStr(formData.get("id")) },
+      async () => {
+        const quoteId = parseStr(formData.get("id"))
+        if (!quoteId || formData.get("confirmDelete") !== "on") throw new ActionError("datos")
+        await prisma.quote.update({ where: { id: quoteId }, data: { archivedAt: new Date() } })
+      }
+    )
+    if (!result.ok) redirect(withError(detailPath, result.code))
+
     revalidatePath("/dashboard/estimados")
-    redirect("/dashboard/estimados")
+    redirect(withNotice("/dashboard/estimados", "archivado"))
   }
 
   async function togglePaymentsAction(formData: FormData) {
@@ -339,7 +431,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
     revalidatePath("/dashboard/estimados")
   }
 
-  const [quote, services, plans, taxRatePercent, emailLogs] = await Promise.all([
+  const [quote, services, plans, taxRatePercent, emailLogs, existingJob, employees] = await Promise.all([
     prisma.quote.findUnique({
       where: { id },
       include: {
@@ -356,7 +448,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
       },
     }),
     prisma.serviceCatalog.findMany({
-      where: { active: true },
+      where: { active: true, archivedAt: null },
       select: {
         id: true,
         name: true,
@@ -389,6 +481,17 @@ export default async function EstimadoDetailPage({ params }: Props) {
       where: { quoteId: id, status: "sent" },
       orderBy: { createdAt: "asc" },
       select: { id: true, createdAt: true, toEmail: true, subject: true },
+    }),
+    prisma.job.findFirst({
+      where: { quoteId: id },
+      select: { id: true, status: true, scheduledAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.employee.findMany({
+      where: { isActive: true },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      take: 200,
     }),
   ])
 
@@ -431,15 +534,8 @@ export default async function EstimadoDetailPage({ params }: Props) {
     recurringInterval: item.recurringInterval,
   }))
 
-  const statusLabel = (s: string) =>
-    ({ DRAFT: "Borrador", SENT: "Enviado", APPROVED: "Aprobado", REJECTED: "Rechazado" }[s] ?? s)
-  const statusBadge = (s: string) =>
-    ({
-      DRAFT: "border-foreground/20 bg-foreground/8 text-foreground/60",
-      SENT: "border-blue-400/40 bg-blue-50 text-blue-700",
-      APPROVED: "border-emerald-500/40 bg-emerald-50 text-emerald-700",
-      REJECTED: "border-rose-400/40 bg-rose-50 text-rose-600",
-    }[s] ?? "border-foreground/20 bg-foreground/8 text-foreground/60")
+  const statusLabel = (s: string) => quoteStatus(s).label
+  const resolvedStatus = quoteStatusResolved(quote.status, quote.validUntil)
 
   const ic =
     "rounded-xl border border-foreground/20 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-accent"
@@ -514,12 +610,13 @@ export default async function EstimadoDetailPage({ params }: Props) {
   const customerPhoneDigits = quote.customer.phone?.replace(/\D/g, "") ?? ""
 
   return (
-    <section className="mx-auto max-w-6xl text-foreground">
+    <section className="text-foreground">
       {/* Top bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link href="/dashboard/estimados" className="text-sm text-foreground/55 transition hover:text-foreground">
           ← Volver a estimados
         </Link>
+        <ActionBanner error={banner.error} notice={banner.ok} className="w-full order-last" />
         <div className="flex items-center gap-2">
           <Link
             href={`/dashboard/estimados/${quote.id}/preview`}
@@ -539,19 +636,22 @@ export default async function EstimadoDetailPage({ params }: Props) {
             <summary className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-foreground/20 bg-background text-foreground/60 transition hover:bg-foreground/5">
               <MoreVertical className="h-4 w-4" />
             </summary>
-            <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-foreground/12 bg-[#fdfcf8] p-2 shadow-lg">
-              <form action={deleteQuoteAction}>
+            <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-foreground/12 bg-admin-popover p-2 shadow-lg">
+              <form action={archiveQuoteAction}>
                 <input type="hidden" name="id" value={quote.id} />
                 <label className="mb-2 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground/60 hover:bg-foreground/5">
                   <input type="checkbox" name="confirmDelete" />
-                  Confirmar eliminación
+                  Confirmar archivado
                 </label>
                 <button
                   type="submit"
-                  className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                  className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-amber-700 transition hover:bg-amber-50"
                 >
-                  Eliminar estimado
+                  Archivar estimado
                 </button>
+                <p className="px-3 pt-1 text-[10px] leading-snug text-foreground/40">
+                  Se oculta del listado. Firma, pagos e historial se conservan.
+                </p>
               </form>
             </div>
           </details>
@@ -594,9 +694,7 @@ export default async function EstimadoDetailPage({ params }: Props) {
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${statusBadge(quote.status)}`}>
-              {statusLabel(quote.status)}
-            </span>
+            <span className={`${STATUS_CHIP} ${resolvedStatus.badge}`}>{resolvedStatus.label}</span>
             <span className={chip}>{QUOTE_FREQUENCY_LABEL[frequency] ?? frequency}</span>
             <span className={chip}>{PLAN_TIER_LABEL[planTier]}</span>
             <span className={`${chip} font-mono text-foreground/40`}>#{quote.id.slice(0, 8)}</span>
@@ -712,6 +810,63 @@ export default async function EstimadoDetailPage({ params }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Convertir en trabajo: el puente que faltaba entre venta y operación */}
+          {quote.status === "APPROVED" ? (
+            <div className="rounded-2xl border border-accent/35 bg-accent/8 p-4">
+              <p className={sectionTitle}>Operación</p>
+              {existingJob ? (
+                <div className="mt-2">
+                  <p className="text-sm text-foreground/70">
+                    Ya existe un trabajo para este estimado.
+                  </p>
+                  <Link
+                    href="/dashboard/scheduling"
+                    className="mt-2 inline-flex items-center gap-1.5 rounded-xl border border-foreground/20 bg-background px-3 py-2 text-sm font-semibold transition hover:border-accent/40 hover:text-accent"
+                  >
+                    Ver en scheduling
+                    <span className={`${STATUS_CHIP} ${jobStatus(existingJob.status).badge}`}>
+                      {jobStatus(existingJob.status).label}
+                    </span>
+                  </Link>
+                </div>
+              ) : !quote.propertyId ? (
+                <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Asigna una propiedad al estimado para poder crear el trabajo.
+                </p>
+              ) : (
+                <form action={convertQuoteToJobAction} className="mt-2.5 space-y-2.5">
+                  <input type="hidden" name="quoteId" value={quote.id} />
+                  <label className="grid gap-1">
+                    <span className={lbl}>Fecha y hora de la visita</span>
+                    <input name="scheduledAt" type="datetime-local" required className={ic} />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className={lbl}>Asignar a (opcional)</span>
+                    <select name="employeeId" className={ic} defaultValue="">
+                      <option value="">Sin asignar</option>
+                      {employees.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <SubmitButton
+                    pendingLabel="Creando trabajo…"
+                    className="w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90"
+                  >
+                    Convertir en trabajo
+                  </SubmitButton>
+                  <p className="text-[11px] leading-snug text-foreground/50">
+                    Crea una visita con los {quote.items.filter((i) => i.serviceId).length} servicios
+                    de este estimado como tareas.
+                  </p>
+                </form>
+              )}
+            </div>
+          ) : null}
 
           {/* Actividad + firma */}
           <QuoteActivityTimeline

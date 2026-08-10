@@ -7,6 +7,17 @@
   --terra: #c45a3a;
   --ink: #1a1a1a;
   --cream-muted: rgb(231 226 214 / 0.65);
+
+  /* Admin shell. These were hardcoded hex literals scattered across the shell
+     (#151515 x5, #262626 x9, #1f1f1f x3) plus a #c45c3e badge that was two
+     digits off from --terra and read as a second, slightly wrong orange. */
+  --admin-surface: #151515;
+  --admin-surface-raised: #1f1f1f;
+  --admin-surface-hover: #262626;
+  --admin-border: rgb(255 255 255 / 0.1);
+  --admin-border-strong: rgb(255 255 255 / 0.15);
+  /* Popovers sit on the light content area, not the dark shell. */
+  --admin-popover: #fdfcf8;
 }
 
 @theme inline {
@@ -30,6 +41,10 @@
   --color-ink: var(--ink);
   --color-muted-foreground: rgb(26 26 26 / 0.62);
   --color-card: #f7f4ed;
+  --color-admin-surface: var(--admin-surface);
+  --color-admin-surface-raised: var(--admin-surface-raised);
+  --color-admin-surface-hover: var(--admin-surface-hover);
+  --color-admin-popover: var(--admin-popover);
   --color-border: rgb(30 45 35 / 0.14);
   --font-sans: var(--font-body);
   --font-display: var(--font-display-family);
@@ -150,6 +165,17 @@ html {
 }
 .delay-3 {
   animation-delay: 400ms;
+}
+
+/* Admin content measure. Two widths, not nine: wide for indexes and boards,
+   narrow for single-object forms. Pages opt in with `admin-page--narrow`
+   on their own <section>. */
+.admin-page {
+  max-width: 80rem; /* 1280px */
+}
+
+.admin-page:has(.admin-page--narrow) {
+  max-width: 48rem; /* 768px */
 }
 
 /* Dashboard main: iOS safe area without Tailwind arbitrary env() (breaks CSS parser). */

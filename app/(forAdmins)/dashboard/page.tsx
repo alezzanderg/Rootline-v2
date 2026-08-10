@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { prisma } from "@/lib/prisma"
+import { jobStatus, STATUS_CHIP } from "@/lib/status-ui"
 
 function fmtWhen(d: Date) {
   return new Intl.DateTimeFormat("es-US", {
@@ -30,19 +31,6 @@ function fmtJobTime(d: Date) {
   }).format(d)
 }
 
-const JOB_STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "Programado",
-  IN_PROGRESS: "En curso",
-  COMPLETED: "Completado",
-  CANCELLED: "Cancelado",
-}
-
-const JOB_STATUS_BADGE: Record<string, string> = {
-  SCHEDULED: "border-blue-400/40 bg-blue-50 text-blue-700",
-  IN_PROGRESS: "border-amber-400/40 bg-amber-50 text-amber-800",
-  COMPLETED: "border-emerald-500/35 bg-emerald-50 text-emerald-700",
-  CANCELLED: "border-rose-400/40 bg-rose-50 text-rose-600",
-}
 
 const quickLinks = [
   {
@@ -118,8 +106,8 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     prisma.serviceInquiry.count({ where: { status: "NEW" } }),
     prisma.serviceInquiry.count({ where: { status: { in: ["NEW", "READ"] } } }),
-    prisma.customer.count({ where: { isActive: true } }),
-    prisma.quote.count({ where: { status: { in: ["DRAFT", "SENT"] } } }),
+    prisma.customer.count({ where: { isActive: true, archivedAt: null } }),
+    prisma.quote.count({ where: { archivedAt: null, status: { in: ["DRAFT", "SENT"] } } }),
     prisma.customerMembership.count({ where: { status: "ACTIVE" } }),
     prisma.job.findMany({
       where: {
@@ -186,7 +174,7 @@ export default async function AdminDashboardPage() {
   ] as const
 
   return (
-    <section className="mx-auto max-w-7xl text-foreground">
+    <section className="text-foreground">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-accent">Panel</p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Dashboard</h1>
@@ -289,12 +277,8 @@ export default async function AdminDashboardPage() {
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-xs font-medium text-foreground/70">{fmtJobTime(job.scheduledAt)}</p>
-                        <span
-                          className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${
-                            JOB_STATUS_BADGE[job.status] ?? "border-foreground/15 text-foreground/50"
-                          }`}
-                        >
-                          {JOB_STATUS_LABEL[job.status] ?? job.status}
+                        <span className={`mt-1 ${STATUS_CHIP} ${jobStatus(job.status).badge}`}>
+                          {jobStatus(job.status).label}
                         </span>
                       </div>
                     </div>

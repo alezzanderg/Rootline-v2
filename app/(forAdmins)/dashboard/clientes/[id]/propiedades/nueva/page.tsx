@@ -1,7 +1,10 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { ActionBanner } from "@/components/ui/ActionBanner"
 import { PropertyMetricsStepper } from "@/components/ui/PropertyMetricsStepper"
+import { SubmitButton } from "@/components/ui/SubmitButton"
+import { ActionError, requireAdmin, runAction, withError } from "@/lib/admin-action"
 import { parseOptInt, parseOptPositiveInt } from "@/lib/form-parse"
 import { prisma } from "@/lib/prisma"
 
@@ -22,10 +25,13 @@ function parseDifficulty(v: FormDataEntryValue | null): "EASY" | "MEDIUM" | "HAR
 
 type Props = {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ error?: string; ok?: string }>
 }
 
-export default async function NuevaPropiedadPage({ params }: Props) {
+export default async function NuevaPropiedadPage({ params, searchParams }: Props) {
   const { id: customerId } = await params
+  const banner = (await searchParams) ?? {}
+  const pagePath = `/dashboard/clientes/${customerId}/propiedades/nueva`
 
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
@@ -38,37 +44,49 @@ export default async function NuevaPropiedadPage({ params }: Props) {
 
   async function createPropertyAction(formData: FormData) {
     "use server"
-    const cId = parseStr(formData.get("customerId"))
-    const street = parseStr(formData.get("street"))
-    const city = parseStr(formData.get("city"))
-    const zipCode = parseStr(formData.get("zipCode"))
-    if (!cId || !street || !city || !zipCode) return
+    const auth = await requireAdmin("properties:write")
+    if (!auth.ok) redirect(withError(pagePath, auth.code))
 
-    await prisma.property.create({
-      data: {
-        customerId: cId,
-        street,
-        city,
-        zipCode,
-        state: parseStr(formData.get("state")) || "NJ",
-        label: parseOptStr(formData.get("label")),
-        accessNotes: parseOptStr(formData.get("accessNotes")),
-        lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
-        flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
-        shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
-        treesCount: parseOptPositiveInt(formData.get("treesCount")),
-        turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
-        bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
-        hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
-        yardFront: formData.get("yardFront") === "on",
-        yardBack: formData.get("yardBack") === "on",
-        yardSides: formData.get("yardSides") === "on",
-        jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
-        estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
-      },
-    })
+    const result = await runAction(
+      auth.user,
+      { action: "property.create", entityType: "Property" },
+      async () => {
+        const cId = parseStr(formData.get("customerId"))
+        const street = parseStr(formData.get("street"))
+        const city = parseStr(formData.get("city"))
+        const zipCode = parseStr(formData.get("zipCode"))
+        if (!cId || !street || !city || !zipCode) throw new ActionError("datos")
+        // The customer id arrives from a hidden field; it must match the route.
+        if (cId !== customerId) throw new ActionError("no_encontrado")
 
-    redirect(`/dashboard/clientes/${cId}`)
+        await prisma.property.create({
+          data: {
+            customerId: cId,
+            street,
+            city,
+            zipCode,
+            state: parseStr(formData.get("state")) || "NJ",
+            label: parseOptStr(formData.get("label")),
+            accessNotes: parseOptStr(formData.get("accessNotes")),
+            lotSizeSqFt: parseOptPositiveInt(formData.get("lotSizeSqFt")),
+            flowerBedsCount: parseOptPositiveInt(formData.get("flowerBedsCount")),
+            shrubsCount: parseOptPositiveInt(formData.get("shrubsCount")),
+            treesCount: parseOptPositiveInt(formData.get("treesCount")),
+            turfAreaSqFt: parseOptPositiveInt(formData.get("turfAreaSqFt")),
+            bedsAreaSqFt: parseOptPositiveInt(formData.get("bedsAreaSqFt")),
+            hardscapeAreaSqFt: parseOptPositiveInt(formData.get("hardscapeAreaSqFt")),
+            yardFront: formData.get("yardFront") === "on",
+            yardBack: formData.get("yardBack") === "on",
+            yardSides: formData.get("yardSides") === "on",
+            jobDifficulty: parseDifficulty(formData.get("jobDifficulty")),
+            estimatedDurationMin: parseOptInt(formData.get("estimatedDurationMin")),
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(pagePath, result.code))
+
+    redirect(`/dashboard/clientes/${customerId}`)
   }
 
   const ic =
@@ -76,10 +94,12 @@ export default async function NuevaPropiedadPage({ params }: Props) {
   const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
   return (
-    <section className="mx-auto max-w-4xl text-foreground">
+    <section className="admin-page--narrow text-foreground">
       <Link href={`/dashboard/clientes/${customer.id}`} className="text-sm text-foreground/55 hover:text-foreground">
         ← Volver al cliente
       </Link>
+
+      <ActionBanner error={banner.error} notice={banner.ok} />
 
       <div className="mt-3">
         <h1 className="font-display text-3xl font-semibold">Nueva propiedad</h1>
@@ -161,9 +181,12 @@ export default async function NuevaPropiedadPage({ params }: Props) {
         </div>
 
         <div className="mt-4 flex gap-2">
-          <button type="submit" className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground">
+          <SubmitButton
+            pendingLabel="Guardando…"
+            className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition hover:bg-accent/90"
+          >
             Guardar propiedad
-          </button>
+          </SubmitButton>
           <Link href={`/dashboard/clientes/${customer.id}`} className="rounded-xl border border-foreground/20 px-4 py-2.5 text-sm font-medium">
             Cancelar
           </Link>

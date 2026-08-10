@@ -283,8 +283,11 @@ export async function getQuoteDocumentById(id: string): Promise<QuoteDocumentDat
 
 export async function getQuoteDocumentByPublicToken(token: string): Promise<QuoteDocumentData | null> {
   const [quote, taxRatePercent] = await Promise.all([
-    prisma.quote.findUnique({
-      where: { publicToken: token },
+    // findFirst, not findUnique: an archived quote must stop resolving from its
+    // public link, otherwise the customer keeps seeing (and could act on) a
+    // document the business has taken out of circulation.
+    prisma.quote.findFirst({
+      where: { publicToken: token, archivedAt: null },
       include: quoteDocumentInclude,
     }),
     getTaxRatePercent(),

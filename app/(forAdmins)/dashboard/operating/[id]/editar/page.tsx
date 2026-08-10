@@ -14,6 +14,9 @@ export default async function EditarMovimientoPage({ params }: Props) {
     prisma.operatingTransaction.findUnique({ where: { id } }),
     prisma.partner.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.quote.findMany({
+      // Kept unfiltered on purpose: an expense may already be linked to a quote
+      // that was archived later, and the select must still render that option or
+      // saving the form would silently drop the link.
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { customer: { select: { firstName: true, lastName: true } } },
@@ -41,7 +44,7 @@ export default async function EditarMovimientoPage({ params }: Props) {
   ]
 
   return (
-    <section className="mx-auto max-w-3xl text-foreground">
+    <section className="admin-page--narrow text-foreground">
       <div className="mb-5">
         <Link href="/dashboard/operating" className="text-sm text-foreground/55 transition hover:text-foreground">
           ← Volver a Operating

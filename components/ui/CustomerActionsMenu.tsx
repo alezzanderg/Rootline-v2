@@ -6,15 +6,19 @@ import { createPortal } from "react-dom"
 type CustomerActionsMenuProps = {
   customerId: string
   isActive: boolean
+  isArchived: boolean
   toggleCustomerActiveAction: (formData: FormData) => Promise<void>
-  deleteCustomerAction: (formData: FormData) => Promise<void>
+  archiveCustomerAction: (formData: FormData) => Promise<void>
+  restoreCustomerAction: (formData: FormData) => Promise<void>
 }
 
 export function CustomerActionsMenu({
   customerId,
   isActive,
+  isArchived,
   toggleCustomerActiveAction,
-  deleteCustomerAction,
+  archiveCustomerAction,
+  restoreCustomerAction,
 }: CustomerActionsMenuProps) {
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
@@ -77,7 +81,7 @@ export function CustomerActionsMenu({
       <div
         ref={menuRef}
         role="menu"
-        className="fixed z-200 w-52 rounded-lg border border-foreground/12 bg-[#fdfcf8] p-1.5 shadow-xl"
+        className="fixed z-200 w-52 rounded-lg border border-foreground/12 bg-admin-popover p-1.5 shadow-xl"
         style={{ top: coords.top, left: coords.left }}
       >
         <form action={toggleCustomerActiveAction}>
@@ -91,19 +95,36 @@ export function CustomerActionsMenu({
           </button>
         </form>
         <div className="my-1 h-px bg-foreground/8" />
-        <form action={deleteCustomerAction}>
-          <input type="hidden" name="id" value={customerId} />
-          <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs text-foreground/50 hover:bg-foreground/5">
-            <input type="checkbox" name="confirmDelete" />
-            Confirmar eliminación
-          </label>
-          <button
-            type="submit"
-            className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
-          >
-            Eliminar cliente
-          </button>
-        </form>
+        {isArchived ? (
+          <form action={restoreCustomerAction}>
+            <input type="hidden" name="id" value={customerId} />
+            <button
+              type="submit"
+              className="w-full rounded-md px-3 py-2 text-left text-sm text-emerald-700 transition hover:bg-emerald-50"
+            >
+              Restaurar cliente
+            </button>
+          </form>
+        ) : (
+          // Archive, never delete: customer.delete cascades through Property ->
+          // Job and Quote -> QuoteItem, which would destroy paid estimates.
+          <form action={archiveCustomerAction}>
+            <input type="hidden" name="id" value={customerId} />
+            <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs text-foreground/50 hover:bg-foreground/5">
+              <input type="checkbox" name="confirmDelete" />
+              Confirmar archivado
+            </label>
+            <button
+              type="submit"
+              className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-amber-700 transition hover:bg-amber-50"
+            >
+              Archivar cliente
+            </button>
+            <p className="px-3 pt-1 pb-1.5 text-[10px] leading-snug text-foreground/40">
+              Se oculta del listado. Estimados y trabajos se conservan.
+            </p>
+          </form>
+        )}
       </div>,
       document.body
     )

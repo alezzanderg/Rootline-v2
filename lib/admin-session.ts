@@ -43,6 +43,7 @@ export async function getAdminSessionUser() {
       email: true,
       firstName: true,
       lastName: true,
+      role: true,
       isActive: true,
       passwordHash: true,
     },
@@ -57,6 +58,7 @@ export async function getAdminSessionUser() {
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
+    role: user.role,
     isActive: user.isActive,
   }
 }

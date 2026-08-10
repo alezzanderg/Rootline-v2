@@ -145,8 +145,11 @@ export async function createCustomerFromInquiryAction(formData: FormData) {
   const inquiryNotes = `Solicitud: ${inquiry.subject}\n\n${inquiry.message}`
   const parsedAddress = parseCompleteUSAddress(inquiry.address)
 
+  // Dedupe against live customers only. Matching an archived record here would
+  // silently resurrect it: the customer would reappear in every list without
+  // anyone deciding to restore them.
   let customer = await prisma.customer.findFirst({
-    where: { OR: [{ email }, { phone }] },
+    where: { archivedAt: null, OR: [{ email }, { phone }] },
   })
 
   if (!customer) {
@@ -170,6 +173,7 @@ export async function createCustomerFromInquiryAction(formData: FormData) {
     const existingProperty = await prisma.property.findFirst({
       where: {
         customerId: customer.id,
+        archivedAt: null,
         street: parsedAddress.street,
         city: parsedAddress.city,
         zipCode: parsedAddress.zipCode,

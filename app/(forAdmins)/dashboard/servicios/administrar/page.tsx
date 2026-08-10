@@ -2,6 +2,8 @@ import Link from "next/link"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { ActionBanner } from "@/components/ui/ActionBanner"
+import { ActionError, requireAdmin, runAction, withError } from "@/lib/admin-action"
 import { AssignPlanCustomerPropertyFields } from "@/components/ui/AssignPlanCustomerPropertyFields"
 import { ServiceCatalogPricingFields } from "@/components/ui/ServiceCatalogPricingFields"
 import { assignMembershipWithSchedule } from "@/lib/membership-plan-assign"
@@ -43,77 +45,128 @@ function SectionHeader({ n, title, hint }: { n: number; title: string; hint: str
   )
 }
 
-export default async function AdministrarCatalogoPage() {
+const PAGE = "/dashboard/servicios/administrar"
+
+type AdministrarPageProps = {
+  searchParams?: Promise<{ error?: string; ok?: string }>
+}
+
+export default async function AdministrarCatalogoPage({ searchParams }: AdministrarPageProps) {
+  const banner = (await searchParams) ?? {}
+
   async function createServiceAction(formData: FormData) {
     "use server"
-    const name = String(formData.get("name") ?? "").trim()
-    const slug = String(formData.get("slug") ?? "").trim()
-    const category = String(formData.get("category") ?? "CORE")
-    if (!name || !slug) return
-    await prisma.serviceCatalog.create({
-      data: {
-        name, slug,
-        category: category as "CORE" | "ADD_ON" | "CLEANUP",
-        description: parseString(formData.get("description")),
-        details: parseString(formData.get("details")),
-        pricingUnit: parseString(formData.get("pricingUnit")),
-        ...serviceCatalogPricingFromForm(formData),
-        memberDiscount: parseDecimal(formData.get("memberDiscount")),
-        includes: parseIncludes(formData.get("includes")),
-        estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
-        active: formData.get("active") === "on",
-      },
-    })
+    const auth = await requireAdmin("catalog:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "service.create", entityType: "ServiceCatalog" },
+      async () => {
+        const name = String(formData.get("name") ?? "").trim()
+        const slug = String(formData.get("slug") ?? "").trim()
+        const category = String(formData.get("category") ?? "CORE")
+        if (!name || !slug) throw new ActionError("datos")
+        await prisma.serviceCatalog.create({
+          data: {
+            name, slug,
+            category: category as "CORE" | "ADD_ON" | "CLEANUP",
+            description: parseString(formData.get("description")),
+            details: parseString(formData.get("details")),
+            pricingUnit: parseString(formData.get("pricingUnit")),
+            ...serviceCatalogPricingFromForm(formData),
+            memberDiscount: parseDecimal(formData.get("memberDiscount")),
+            includes: parseIncludes(formData.get("includes")),
+            estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
+            active: formData.get("active") === "on",
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+
     revalidatePath("/dashboard/servicios")
-    revalidatePath("/dashboard/servicios/administrar")
+    revalidatePath(PAGE)
     redirect("/dashboard/servicios")
   }
 
   async function createPlanAction(formData: FormData) {
     "use server"
-    const name = String(formData.get("name") ?? "").trim()
-    const slug = String(formData.get("slug") ?? "").trim()
-    const tier = String(formData.get("tier") ?? "SMALL")
-    const monthlyPrice = parseDecimal(formData.get("monthlyPrice"))
-    if (!name || !slug || monthlyPrice === null) return
-    await prisma.membershipPlan.create({
-      data: {
-        name, slug,
-        tier: tier as "SMALL" | "MEDIUM" | "LARGE",
-        description: parseString(formData.get("description")),
-        monthlyPrice,
-        visitsPerMonth: Number(formData.get("visitsPerMonth") ?? 4) || 4,
-        addOnDiscount: parseDecimal(formData.get("addOnDiscount")) ?? 0,
-        priorityScheduling: formData.get("priorityScheduling") === "on",
-        benefits: parseIncludes(formData.get("benefits")),
-        active: formData.get("active") === "on",
-      },
-    })
+    const auth = await requireAdmin("catalog:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "plan.create", entityType: "MembershipPlan" },
+      async () => {
+        const name = String(formData.get("name") ?? "").trim()
+        const slug = String(formData.get("slug") ?? "").trim()
+        const tier = String(formData.get("tier") ?? "SMALL")
+        const monthlyPrice = parseDecimal(formData.get("monthlyPrice"))
+        if (!name || !slug || monthlyPrice === null) throw new ActionError("datos")
+        await prisma.membershipPlan.create({
+          data: {
+            name, slug,
+            tier: tier as "SMALL" | "MEDIUM" | "LARGE",
+            description: parseString(formData.get("description")),
+            monthlyPrice,
+            visitsPerMonth: Number(formData.get("visitsPerMonth") ?? 4) || 4,
+            addOnDiscount: parseDecimal(formData.get("addOnDiscount")) ?? 0,
+            priorityScheduling: formData.get("priorityScheduling") === "on",
+            benefits: parseIncludes(formData.get("benefits")),
+            active: formData.get("active") === "on",
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+
     revalidatePath("/dashboard/servicios")
-    revalidatePath("/dashboard/servicios/administrar")
+    revalidatePath(PAGE)
     redirect("/dashboard/servicios")
   }
 
   async function assignPlanAction(formData: FormData) {
     "use server"
-    const customerId = String(formData.get("customerId") ?? "")
-    const planId = String(formData.get("planId") ?? "")
-    const propertyIdRaw = String(formData.get("propertyId") ?? "").trim()
-    const startWeekRaw = String(formData.get("startWeek") ?? "").trim()
-    const weekday = Number.parseInt(String(formData.get("preferredWeekday") ?? ""), 10)
-    if (!customerId || !planId) return
-    if (startWeekRaw !== "THIS_WEEK" && startWeekRaw !== "NEXT_WEEK") return
-    if (!Number.isFinite(weekday) || weekday < 1 || weekday > 7) return
+    const auth = await requireAdmin("customers:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
 
-    await assignMembershipWithSchedule(prisma, {
-      customerId,
-      planId,
-      propertyId: propertyIdRaw || null,
-      startWeek: startWeekRaw,
-      preferredWeekday: weekday,
-      preferredTime: parseString(formData.get("preferredTime")),
-      notes: parseString(formData.get("notes")),
-    })
+    const result = await runAction(
+      auth.user,
+      { action: "membership.assign", entityType: "Customer", entityId: String(formData.get("customerId") ?? "") },
+      async () => {
+        const customerId = String(formData.get("customerId") ?? "")
+        const planId = String(formData.get("planId") ?? "")
+        const propertyIdRaw = String(formData.get("propertyId") ?? "").trim()
+        const startWeekRaw = String(formData.get("startWeek") ?? "").trim()
+        const weekday = Number.parseInt(String(formData.get("preferredWeekday") ?? ""), 10)
+        if (!customerId || !planId) throw new ActionError("datos")
+        if (startWeekRaw !== "THIS_WEEK" && startWeekRaw !== "NEXT_WEEK") throw new ActionError("datos")
+        if (!Number.isFinite(weekday) || weekday < 1 || weekday > 7) throw new ActionError("datos")
+
+        // The property must belong to the customer being assigned; both ids
+        // arrive from the same form and were never cross-checked.
+        if (propertyIdRaw) {
+          const owned = await prisma.property.findFirst({
+            where: { id: propertyIdRaw, customerId, archivedAt: null },
+            select: { id: true },
+          })
+          if (!owned) throw new ActionError("no_encontrado")
+        }
+
+        await assignMembershipWithSchedule(prisma, {
+          customerId,
+          planId,
+          propertyId: propertyIdRaw || null,
+          startWeek: startWeekRaw,
+          preferredWeekday: weekday,
+          preferredTime: parseString(formData.get("preferredTime")),
+          notes: parseString(formData.get("notes")),
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+
     revalidatePath("/dashboard/servicios")
     revalidatePath("/dashboard/clientes")
     revalidatePath("/dashboard/scheduling")
@@ -126,11 +179,13 @@ export default async function AdministrarCatalogoPage() {
       orderBy: [{ tier: "asc" }, { monthlyPrice: "asc" }],
     }),
     prisma.customer.findMany({
-      where: { isActive: true },
+      // Archived customers must not reappear in pickers.
+      where: { isActive: true, archivedAt: null },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       take: 300,
       include: {
         properties: {
+          where: { archivedAt: null },
           orderBy: { createdAt: "asc" },
           select: { id: true, label: true, street: true, city: true },
         },
@@ -149,7 +204,7 @@ export default async function AdministrarCatalogoPage() {
   const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
   return (
-    <section className="mx-auto max-w-6xl text-foreground">
+    <section className="text-foreground">
       {/* Header */}
       <div className="mb-6">
         <Link href="/dashboard/servicios" className="text-sm text-foreground/55 transition hover:text-foreground">
@@ -157,6 +212,7 @@ export default async function AdministrarCatalogoPage() {
         </Link>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div>
+            <ActionBanner error={banner.error} notice={banner.ok} />
             <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin catalog</p>
             <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Administrar catálogo</h1>
             <p className="mt-2 max-w-2xl text-sm text-foreground/55">

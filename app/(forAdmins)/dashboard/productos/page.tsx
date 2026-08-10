@@ -29,7 +29,7 @@ export default async function ProductosPage() {
   const productOptions = products.map((p) => ({ id: p.id, name: p.name, sku: p.sku }))
 
   return (
-    <section className="mx-auto max-w-4xl text-foreground">
+    <section className="text-foreground">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>

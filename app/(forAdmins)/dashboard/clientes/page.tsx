@@ -1,8 +1,11 @@
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import Link from "next/link"
 import { prisma } from "@/lib/prisma"
+import { ActionBanner } from "@/components/ui/ActionBanner"
 import { EditDialog } from "@/components/ui/EditDialog"
 import { PhoneInput } from "@/components/ui/PhoneInput"
+import { ActionError, requireAdmin, runAction, withError } from "@/lib/admin-action"
 import { parsePhoneRequired } from "@/lib/phone-format"
 
 function parseStr(v: FormDataEntryValue | null) {
@@ -33,69 +36,100 @@ const TIER_BADGE: Record<string, string> = {
   SMALL: "border-primary/30 bg-primary/8 text-primary",
 }
 
-type ClientesPageProps = { searchParams?: Promise<{ q?: string }> }
+type ClientesPageProps = {
+  searchParams?: Promise<{ q?: string; filter?: string; error?: string; ok?: string }>
+}
+
+const PAGE = "/dashboard/clientes"
 
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
   async function createCustomerAction(formData: FormData) {
     "use server"
-    const firstName = titleCase(parseStr(formData.get("firstName")))
-    const lastName = titleCase(parseStr(formData.get("lastName")))
-    const phone = parsePhoneRequired(formData.get("phone"))
-    if (!firstName || !phone) return
-    const rawNotes = parseOptStr(formData.get("notes"))
-    await prisma.customer.create({
-      data: {
-        firstName,
-        lastName,
-        phone,
-        email: parseOptStr(formData.get("email")),
-        notes: rawNotes ? sentenceCase(rawNotes) : null,
-        difficulty: parseDifficulty(formData.get("difficulty")),
-      },
-    })
-    revalidatePath("/dashboard/clientes")
+    const auth = await requireAdmin("customers:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "customer.create", entityType: "Customer" },
+      async () => {
+        const firstName = titleCase(parseStr(formData.get("firstName")))
+        const lastName = titleCase(parseStr(formData.get("lastName")))
+        const phone = parsePhoneRequired(formData.get("phone"))
+        if (!firstName || !phone) throw new ActionError("datos")
+        const rawNotes = parseOptStr(formData.get("notes"))
+        await prisma.customer.create({
+          data: {
+            firstName,
+            lastName,
+            phone,
+            email: parseOptStr(formData.get("email")),
+            notes: rawNotes ? sentenceCase(rawNotes) : null,
+            difficulty: parseDifficulty(formData.get("difficulty")),
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+    revalidatePath(PAGE)
   }
 
   const params = (await searchParams) ?? {}
   const queryRaw = typeof params.q === "string" ? params.q.trim() : ""
-  const queryLower = queryRaw.toLowerCase()
+  const showArchived = params.filter === "archived"
 
-  const customers = await prisma.customer.findMany({
-    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      phone: true,
-      email: true,
-      isActive: true,
-      difficulty: true,
-      _count: { select: { properties: true } },
-      memberships: {
-        where: { status: "ACTIVE" },
+  // Filtering happens in Prisma, not in JS over a truncated page. The old
+  // version pulled every customer and filtered in memory, so counts and search
+  // silently disagreed with the database once the table grew.
+  const archiveWhere = showArchived ? { archivedAt: { not: null } } : { archivedAt: null }
+  const searchWhere = queryRaw
+    ? {
+        OR: [
+          { firstName: { contains: queryRaw, mode: "insensitive" as const } },
+          { lastName: { contains: queryRaw, mode: "insensitive" as const } },
+          { phone: { contains: queryRaw } },
+          { email: { contains: queryRaw, mode: "insensitive" as const } },
+        ],
+      }
+    : {}
+  const where = { ...archiveWhere, ...searchWhere }
+
+  const [filtered, matchingCount, liveCount, totalActive, totalMembers, archivedCount] =
+    await Promise.all([
+      prisma.customer.findMany({
+        where,
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        take: 200,
         select: {
-          plan: { select: { name: true, tier: true, monthlyPrice: true } },
+          id: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          email: true,
+          isActive: true,
+          difficulty: true,
+          archivedAt: true,
+          _count: { select: { properties: true } },
+          memberships: {
+            where: { status: "ACTIVE" },
+            select: { plan: { select: { name: true, tier: true, monthlyPrice: true } } },
+            take: 1,
+          },
         },
-        take: 1,
-      },
-    },
-  })
+      }),
+      prisma.customer.count({ where }),
+      prisma.customer.count({ where: archiveWhere }),
+      prisma.customer.count({ where: { archivedAt: null, isActive: true } }),
+      prisma.customer.count({ where: { archivedAt: null, memberships: { some: { status: "ACTIVE" } } } }),
+      prisma.customer.count({ where: { archivedAt: { not: null } } }),
+    ])
 
-  const filtered = queryLower
-    ? customers.filter((c) => {
-        const blob = `${c.firstName} ${c.lastName} ${c.phone} ${c.email ?? ""}`.toLowerCase()
-        return blob.includes(queryLower)
-      })
-    : customers
-
-  const totalActive = customers.filter((c) => c.isActive).length
-  const totalMembers = customers.filter((c) => c.memberships.length > 0).length
+  const customers = filtered
 
   const ic = "rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent"
   const lbl = "text-[10px] font-semibold uppercase tracking-wider text-foreground/40"
 
   return (
-    <section className="mx-auto max-w-7xl text-foreground">
+    <section className="text-foreground">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -107,7 +141,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
           <span className="rounded-full border border-foreground/15 px-3 py-1 text-foreground/60">
-            {customers.length} clientes
+            {liveCount} clientes
           </span>
           <span className="rounded-full border border-foreground/15 px-3 py-1 text-foreground/60">
             {totalActive} activos
@@ -118,8 +152,35 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         </div>
       </div>
 
+      <ActionBanner error={params.error} notice={params.ok} />
+
+      {/* Vista: activos vs archivados. Sin esta vista, archivar equivaldría a
+          desaparecer: el dato seguiría en la base pero nadie podría recuperarlo. */}
+      <div className="mt-5 flex flex-wrap gap-2 text-xs">
+        <Link
+          href={queryRaw ? `${PAGE}?q=${encodeURIComponent(queryRaw)}` : PAGE}
+          className={`rounded-full border px-3 py-1.5 font-semibold transition ${
+            !showArchived
+              ? "border-accent/50 bg-accent/15 text-accent"
+              : "border-foreground/15 text-foreground/60 hover:bg-foreground/5"
+          }`}
+        >
+          Activos
+        </Link>
+        <Link
+          href={`${PAGE}?filter=archived${queryRaw ? `&q=${encodeURIComponent(queryRaw)}` : ""}`}
+          className={`rounded-full border px-3 py-1.5 font-semibold transition ${
+            showArchived
+              ? "border-accent/50 bg-accent/15 text-accent"
+              : "border-foreground/15 text-foreground/60 hover:bg-foreground/5"
+          }`}
+        >
+          Archivados{archivedCount > 0 ? ` (${archivedCount})` : ""}
+        </Link>
+      </div>
+
       {/* Controls */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <form method="get" className="flex min-w-0 flex-1 items-center gap-2" role="search">
           <input
             name="q"
@@ -192,7 +253,8 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
 
       {queryRaw && (
         <p className="mt-2 text-sm text-foreground/55">
-          {filtered.length} de {customers.length} resultados
+          {matchingCount} de {liveCount} resultados
+          {matchingCount > filtered.length ? ` · mostrando los primeros ${filtered.length}` : ""}
         </p>
       )}
 
@@ -222,14 +284,16 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
               </tr>
             </thead>
             <tbody>
-              {customers.length === 0 ? (
+              {liveCount === 0 && !queryRaw ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <p className="font-display text-lg font-semibold text-foreground/40">
-                      No hay clientes todavía
+                      {showArchived ? "No hay clientes archivados" : "No hay clientes todavía"}
                     </p>
                     <p className="mt-1 text-sm text-foreground/35">
-                      Usa el botón de arriba para agregar el primero.
+                      {showArchived
+                        ? "Los clientes que archives aparecerán aquí y podrás restaurarlos."
+                        : "Usa el botón de arriba para agregar el primero."}
                     </p>
                   </td>
                 </tr>
@@ -291,12 +355,14 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
                       <td className="px-4 py-3 align-middle">
                         <span
                           className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                            c.isActive
-                              ? "border-emerald-600/30 bg-emerald-50 text-emerald-700"
-                              : "border-rose-500/30 bg-rose-50 text-rose-600"
+                            c.archivedAt
+                              ? "border-amber-500/40 bg-amber-50 text-amber-800"
+                              : c.isActive
+                                ? "border-emerald-600/30 bg-emerald-50 text-emerald-700"
+                                : "border-rose-500/30 bg-rose-50 text-rose-600"
                           }`}
                         >
-                          {c.isActive ? "Activo" : "Inactivo"}
+                          {c.archivedAt ? "Archivado" : c.isActive ? "Activo" : "Inactivo"}
                         </span>
                       </td>
                       <td className="px-4 py-3 align-middle text-right">

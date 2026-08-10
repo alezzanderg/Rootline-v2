@@ -60,12 +60,14 @@ export default async function CorreosPage({ searchParams }: Props) {
       },
     }),
     prisma.customer.findMany({
-      where: { isActive: true, email: { not: null } },
+      // Archived records must not show up in send-to pickers.
+      where: { isActive: true, archivedAt: null, email: { not: null } },
       orderBy: { updatedAt: "desc" },
       take: 80,
       select: { id: true, firstName: true, lastName: true, email: true },
     }),
     prisma.quote.findMany({
+      where: { archivedAt: null },
       orderBy: { updatedAt: "desc" },
       take: 60,
       include: {
@@ -101,7 +103,7 @@ export default async function CorreosPage({ searchParams }: Props) {
     (params.inquiry ? findDefaultTemplate(templates, "INQUIRY", preferredLocale) : undefined)
 
   return (
-    <section className="mx-auto max-w-[90rem] text-foreground">
+    <section className="text-foreground">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-accent">Comunicación</p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">Correos</h1>

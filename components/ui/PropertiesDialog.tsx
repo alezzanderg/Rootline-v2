@@ -218,15 +218,17 @@ export function PropertiesDialog({
               <div key={property.id} className="rounded-lg border border-foreground/10 bg-white/60 p-3">
                 {deletingId === property.id ? (
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-foreground/60">¿Eliminar esta propiedad?</p>
+                    <p className="text-sm text-foreground/60">
+                      ¿Archivar esta propiedad? Sus trabajos se conservan.
+                    </p>
                     <div className="flex gap-1.5 shrink-0">
                       <button
                         type="button"
                         disabled={isPending}
                         onClick={() => submitDelete(property.id)}
-                        className="rounded-md bg-rose-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
+                        className="rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
                       >
-                        Eliminar
+                        {isPending ? "Archivando…" : "Archivar"}
                       </button>
                       <button
                         type="button"

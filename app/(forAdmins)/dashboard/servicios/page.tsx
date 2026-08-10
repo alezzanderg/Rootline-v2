@@ -1,6 +1,9 @@
 import Link from "next/link"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
+import { ActionBanner } from "@/components/ui/ActionBanner"
+import { ActionError, requireAdmin, runAction, withError } from "@/lib/admin-action"
 import { AutoCloseDetails } from "@/components/ui/AutoCloseDetails"
 import { EditDialog } from "@/components/ui/EditDialog"
 import { ServiceCatalogPriceDisplay } from "@/components/ui/ServiceCatalogPriceDisplay"
@@ -30,83 +33,157 @@ function parseIncludes(input: FormDataEntryValue | null): string[] {
     .filter(Boolean)
 }
 
-export default async function ServiciosAdminPage() {
+const PAGE = "/dashboard/servicios"
+
+type ServiciosPageProps = {
+  searchParams?: Promise<{ error?: string; ok?: string }>
+}
+
+export default async function ServiciosAdminPage({ searchParams }: ServiciosPageProps) {
+  const banner = (await searchParams) ?? {}
+
   async function updateServiceAction(formData: FormData) {
     "use server"
-    const id = String(formData.get("id") ?? "")
-    if (!id) return
-    const name = String(formData.get("name") ?? "").trim()
-    const slug = String(formData.get("slug") ?? "").trim()
-    const category = String(formData.get("category") ?? "CORE")
-    if (!name || !slug) return
-    await prisma.serviceCatalog.update({
-      where: { id },
-      data: {
-        name, slug,
-        category: category as "CORE" | "ADD_ON" | "CLEANUP",
-        description: parseString(formData.get("description")),
-        details: parseString(formData.get("details")),
-        pricingUnit: parseString(formData.get("pricingUnit")),
-        ...serviceCatalogPricingFromForm(formData),
-        memberDiscount: parseDecimal(formData.get("memberDiscount")),
-        includes: parseIncludes(formData.get("includes")),
-        estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
-        active: formData.get("active") === "on",
-      },
-    })
-    revalidatePath("/dashboard/servicios")
+    const auth = await requireAdmin("catalog:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "service.update", entityType: "ServiceCatalog", entityId: String(formData.get("id") ?? "") },
+      async () => {
+        const id = String(formData.get("id") ?? "")
+        const name = String(formData.get("name") ?? "").trim()
+        const slug = String(formData.get("slug") ?? "").trim()
+        const category = String(formData.get("category") ?? "CORE")
+        if (!id || !name || !slug) throw new ActionError("datos")
+        await prisma.serviceCatalog.update({
+          where: { id },
+          data: {
+            name, slug,
+            category: category as "CORE" | "ADD_ON" | "CLEANUP",
+            description: parseString(formData.get("description")),
+            details: parseString(formData.get("details")),
+            pricingUnit: parseString(formData.get("pricingUnit")),
+            ...serviceCatalogPricingFromForm(formData),
+            memberDiscount: parseDecimal(formData.get("memberDiscount")),
+            includes: parseIncludes(formData.get("includes")),
+            estimatedMinutes: Number(formData.get("estimatedMinutes") ?? 0) || null,
+            active: formData.get("active") === "on",
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+    revalidatePath(PAGE)
   }
 
   async function toggleServiceActiveAction(formData: FormData) {
     "use server"
-    const id = String(formData.get("id") ?? "")
-    const nextActive = String(formData.get("nextActive") ?? "") === "true"
-    if (!id) return
-    await prisma.serviceCatalog.update({ where: { id }, data: { active: nextActive } })
-    revalidatePath("/dashboard/servicios")
+    const auth = await requireAdmin("catalog:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "service.toggleActive", entityType: "ServiceCatalog", entityId: String(formData.get("id") ?? "") },
+      async () => {
+        const id = String(formData.get("id") ?? "")
+        if (!id) throw new ActionError("datos")
+        await prisma.serviceCatalog.update({
+          where: { id },
+          data: { active: String(formData.get("nextActive") ?? "") === "true" },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+    revalidatePath(PAGE)
   }
 
-  async function deleteServiceAction(formData: FormData) {
+  /**
+   * Archives instead of deleting. QuoteItem and JobItem reference a service with
+   * onDelete: Restrict, so the old delete silently fell through to `active:false`
+   * whenever the service had ever been quoted, and hard-deleted it otherwise —
+   * two different outcomes behind one button. Now it is always the same one.
+   */
+  async function archiveServiceAction(formData: FormData) {
     "use server"
-    const id = String(formData.get("id") ?? "")
-    const confirmDelete = String(formData.get("confirmDelete") ?? "") === "on"
-    if (!id || !confirmDelete) return
-    try {
-      await prisma.serviceCatalog.delete({ where: { id } })
-    } catch {
-      await prisma.serviceCatalog.update({ where: { id }, data: { active: false } })
-    }
-    revalidatePath("/dashboard/servicios")
+    const auth = await requireAdmin("archive")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "service.archive", entityType: "ServiceCatalog", entityId: String(formData.get("id") ?? "") },
+      async () => {
+        const id = String(formData.get("id") ?? "")
+        if (!id || String(formData.get("confirmDelete") ?? "") !== "on") throw new ActionError("datos")
+        await prisma.serviceCatalog.update({
+          where: { id },
+          data: { archivedAt: new Date(), active: false },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+    revalidatePath(PAGE)
+  }
+
+  async function restoreServiceAction(formData: FormData) {
+    "use server"
+    const auth = await requireAdmin("archive")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "service.restore", entityType: "ServiceCatalog", entityId: String(formData.get("id") ?? "") },
+      async () => {
+        const id = String(formData.get("id") ?? "")
+        if (!id) throw new ActionError("datos")
+        await prisma.serviceCatalog.update({
+          where: { id },
+          data: { archivedAt: null, active: true },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+    revalidatePath(PAGE)
   }
 
   async function updatePlanAction(formData: FormData) {
     "use server"
-    const id = String(formData.get("id") ?? "")
-    if (!id) return
-    const name = String(formData.get("name") ?? "").trim()
-    const slug = String(formData.get("slug") ?? "").trim()
-    const tier = String(formData.get("tier") ?? "SMALL")
-    const monthlyPrice = parseDecimal(formData.get("monthlyPrice"))
-    if (!name || !slug || monthlyPrice === null) return
-    await prisma.membershipPlan.update({
-      where: { id },
-      data: {
-        name, slug,
-        tier: tier as "SMALL" | "MEDIUM" | "LARGE",
-        description: parseString(formData.get("description")),
-        monthlyPrice,
-        visitsPerMonth: Number(formData.get("visitsPerMonth") ?? 4) || 4,
-        addOnDiscount: parseDecimal(formData.get("addOnDiscount")) ?? 0,
-        priorityScheduling: formData.get("priorityScheduling") === "on",
-        benefits: parseIncludes(formData.get("benefits")),
-        active: formData.get("active") === "on",
-      },
-    })
-    revalidatePath("/dashboard/servicios")
+    const auth = await requireAdmin("catalog:write")
+    if (!auth.ok) redirect(withError(PAGE, auth.code))
+
+    const result = await runAction(
+      auth.user,
+      { action: "plan.update", entityType: "MembershipPlan", entityId: String(formData.get("id") ?? "") },
+      async () => {
+        const id = String(formData.get("id") ?? "")
+        const name = String(formData.get("name") ?? "").trim()
+        const slug = String(formData.get("slug") ?? "").trim()
+        const tier = String(formData.get("tier") ?? "SMALL")
+        const monthlyPrice = parseDecimal(formData.get("monthlyPrice"))
+        if (!id || !name || !slug || monthlyPrice === null) throw new ActionError("datos")
+        await prisma.membershipPlan.update({
+          where: { id },
+          data: {
+            name, slug,
+            tier: tier as "SMALL" | "MEDIUM" | "LARGE",
+            description: parseString(formData.get("description")),
+            monthlyPrice,
+            visitsPerMonth: Number(formData.get("visitsPerMonth") ?? 4) || 4,
+            addOnDiscount: parseDecimal(formData.get("addOnDiscount")) ?? 0,
+            priorityScheduling: formData.get("priorityScheduling") === "on",
+            benefits: parseIncludes(formData.get("benefits")),
+            active: formData.get("active") === "on",
+          },
+        })
+      }
+    )
+    if (!result.ok) redirect(withError(PAGE, result.code))
+    revalidatePath(PAGE)
   }
 
-  const [services, plans, activeMemberships] = await Promise.all([
+  const [services, plans, activeMemberships, archivedServices] = await Promise.all([
     prisma.serviceCatalog.findMany({
+      where: { archivedAt: null },
       orderBy: [{ category: "asc" }, { displayOrder: "asc" }, { name: "asc" }],
     }),
     prisma.membershipPlan.findMany({
@@ -121,6 +198,11 @@ export default async function ServiciosAdminPage() {
       },
       orderBy: { createdAt: "desc" },
       take: 20,
+    }),
+    prisma.serviceCatalog.findMany({
+      where: { archivedAt: { not: null } },
+      orderBy: { archivedAt: "desc" },
+      select: { id: true, name: true, category: true, archivedAt: true },
     }),
   ])
 
@@ -139,8 +221,10 @@ export default async function ServiciosAdminPage() {
     }`
 
   return (
-    <section className="mx-auto max-w-7xl text-foreground">
+    <section className="text-foreground">
       <AutoCloseDetails />
+
+      <ActionBanner error={banner.error} notice={banner.ok} />
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -157,6 +241,11 @@ export default async function ServiciosAdminPage() {
           <span className="rounded-full border border-foreground/15 px-3 py-1 text-foreground/60">
             {services.filter((s) => s.active).length} activos
           </span>
+          {archivedServices.length > 0 ? (
+            <span className="rounded-full border border-amber-500/35 bg-amber-50 px-3 py-1 font-medium text-amber-800">
+              {archivedServices.length} archivados
+            </span>
+          ) : null}
           <span className="rounded-full border border-foreground/15 px-3 py-1 text-foreground/60">
             {plans.length} planes
           </span>
@@ -272,7 +361,7 @@ export default async function ServiciosAdminPage() {
                         <summary className="cursor-pointer list-none rounded-md border border-foreground/15 px-2 py-1 text-sm transition hover:bg-foreground/8">
                           ···
                         </summary>
-                        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-foreground/12 bg-[#fdfcf8] p-1.5 shadow-xl">
+                        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-foreground/12 bg-admin-popover p-1.5 shadow-xl">
                           <form action={toggleServiceActiveAction}>
                             <input type="hidden" name="id" value={service.id} />
                             <input type="hidden" name="nextActive" value={service.active ? "false" : "true"} />
@@ -281,14 +370,14 @@ export default async function ServiciosAdminPage() {
                             </button>
                           </form>
                           <div className="my-1 h-px bg-foreground/8" />
-                          <form action={deleteServiceAction}>
+                          <form action={archiveServiceAction}>
                             <input type="hidden" name="id" value={service.id} />
                             <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs text-foreground/50 transition hover:bg-foreground/5">
                               <input type="checkbox" name="confirmDelete" />
-                              Confirmar eliminación
+                              Confirmar archivado
                             </label>
-                            <button type="submit" className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50">
-                              Eliminar
+                            <button type="submit" className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-amber-700 transition hover:bg-amber-50">
+                              Archivar
                             </button>
                           </form>
                         </div>
@@ -403,7 +492,7 @@ export default async function ServiciosAdminPage() {
                         <summary className="cursor-pointer list-none rounded-md border border-foreground/15 px-2 py-1 text-sm transition hover:bg-foreground/8">
                           ···
                         </summary>
-                        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-foreground/12 bg-[#fdfcf8] p-1.5 shadow-xl">
+                        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-foreground/12 bg-admin-popover p-1.5 shadow-xl">
                           <form action={toggleServiceActiveAction}>
                             <input type="hidden" name="id" value={service.id} />
                             <input type="hidden" name="nextActive" value={service.active ? "false" : "true"} />
@@ -412,14 +501,14 @@ export default async function ServiciosAdminPage() {
                             </button>
                           </form>
                           <div className="my-1 h-px bg-foreground/8" />
-                          <form action={deleteServiceAction}>
+                          <form action={archiveServiceAction}>
                             <input type="hidden" name="id" value={service.id} />
                             <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs text-foreground/50 transition hover:bg-foreground/5">
                               <input type="checkbox" name="confirmDelete" />
-                              Confirmar eliminación
+                              Confirmar archivado
                             </label>
-                            <button type="submit" className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50">
-                              Eliminar
+                            <button type="submit" className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-amber-700 transition hover:bg-amber-50">
+                              Archivar
                             </button>
                           </form>
                         </div>
@@ -527,7 +616,7 @@ export default async function ServiciosAdminPage() {
                       <summary className="cursor-pointer list-none rounded-md border border-foreground/15 px-1.5 py-0.5 text-xs transition hover:bg-foreground/8">
                         ···
                       </summary>
-                      <div className="absolute right-0 z-10 mt-1 w-48 rounded-lg border border-foreground/12 bg-[#fdfcf8] p-1.5 shadow-xl">
+                      <div className="absolute right-0 z-10 mt-1 w-48 rounded-lg border border-foreground/12 bg-admin-popover p-1.5 shadow-xl">
                         <form action={toggleServiceActiveAction}>
                           <input type="hidden" name="id" value={service.id} />
                           <input type="hidden" name="nextActive" value={service.active ? "false" : "true"} />
@@ -536,11 +625,11 @@ export default async function ServiciosAdminPage() {
                           </button>
                         </form>
                         <div className="my-1 h-px bg-foreground/8" />
-                        <form action={deleteServiceAction}>
+                        <form action={archiveServiceAction}>
                           <input type="hidden" name="id" value={service.id} />
                           <label className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs text-foreground/50 transition hover:bg-foreground/5">
                             <input type="checkbox" name="confirmDelete" />
-                            Confirmar eliminación
+                            Confirmar archivado
                           </label>
                           <button type="submit" className="mt-0.5 w-full rounded-md px-3 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50">
                             Eliminar
@@ -744,6 +833,43 @@ export default async function ServiciosAdminPage() {
         </div>
       </div>
 
+      {/* Archivados: sin esta lista, archivar sería indistinguible de borrar. */}
+      {archivedServices.length > 0 ? (
+        <div className="mt-8 rounded-2xl border border-foreground/12 bg-background p-4 sm:p-5">
+          <h2 className="font-display text-lg font-semibold">Servicios archivados</h2>
+          <p className="mt-0.5 text-sm text-foreground/50">
+            Siguen ligados a estimados y trabajos anteriores. Restaurar los devuelve al catálogo.
+          </p>
+          <ul className="mt-3 divide-y divide-foreground/8">
+            {archivedServices.map((service) => (
+              <li key={service.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{service.name}</p>
+                  <p className="text-xs text-foreground/45">
+                    Archivado el{" "}
+                    {service.archivedAt
+                      ? new Intl.DateTimeFormat("es-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }).format(service.archivedAt)
+                      : "—"}
+                  </p>
+                </div>
+                <form action={restoreServiceAction}>
+                  <input type="hidden" name="id" value={service.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-emerald-600/35 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                  >
+                    Restaurar
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   )
 }

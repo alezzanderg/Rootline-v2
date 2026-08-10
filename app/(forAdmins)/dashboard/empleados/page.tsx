@@ -125,6 +125,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
         email,
         firstName,
         lastName,
+        role,
         password: password || null,
       })
     }
@@ -187,6 +188,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
       email: employee.email,
       firstName: employee.firstName,
       lastName: employee.lastName,
+      role: employee.role,
       password: password || null,
     })
     revalidatePath("/dashboard/empleados")
@@ -203,6 +205,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
       email: employee.email,
       firstName: employee.firstName,
       lastName: employee.lastName,
+      role: employee.role,
       password: null,
     })
     revalidatePath("/dashboard/empleados")
@@ -380,7 +383,7 @@ export default async function EmpleadosPage({ searchParams }: EmpleadosPageProps
   const statCard = "rounded-2xl border border-foreground/12 bg-white/50 p-4"
 
   return (
-    <section className="mx-auto max-w-7xl text-foreground">
+    <section className="text-foreground">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wider text-accent">Admin</p>
         <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">
